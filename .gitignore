@@ -1,0 +1,15 @@
+# Build
+target/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Sistema / logs
+*.log
+.DS_Store
+.env
