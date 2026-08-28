@@ -61,3 +61,46 @@ CREATE TABLE IF NOT EXISTS servico (
   CONSTRAINT uq_servico_descricao  UNIQUE (descricao),
   CONSTRAINT ck_servico_preco      CHECK (preco >= 0)
 ) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+--  ORDEM_SERVICO: cabeçalho da OS, sempre vinculada a um veículo
+--  (e, através dele, ao cliente). O valor total NÃO é armazenado:
+--  é calculado como SUM(quantidade * valor_unitario) dos itens.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ordem_servico (
+  id                  INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+  veiculo_id          INT UNSIGNED    NOT NULL,
+  status              ENUM('ABERTA', 'EM_ANDAMENTO', 'CONCLUIDA', 'CANCELADA') NOT NULL DEFAULT 'ABERTA',
+  descricao_problema  VARCHAR(500)    NOT NULL,
+  km_atual            INT UNSIGNED    NULL,
+  data_abertura       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  data_conclusao      DATETIME        NULL,
+  observacoes         VARCHAR(500)    NULL,
+  CONSTRAINT pk_ordem_servico   PRIMARY KEY (id),
+  CONSTRAINT fk_os_veiculo      FOREIGN KEY (veiculo_id) REFERENCES veiculo (id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,                    -- veículo com OS não pode ser excluído
+  CONSTRAINT ck_os_conclusao    CHECK (data_conclusao IS NULL OR data_conclusao >= data_abertura),
+  INDEX idx_os_status (status),
+  INDEX idx_os_data_abertura (data_abertura)
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+--  ITEM_OS: tabela associativa N:N entre ORDEM_SERVICO e SERVICO.
+--  Guarda quantidade e o preço praticado no momento (histórico), pois
+--  o preço de tabela em SERVICO pode mudar depois.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS item_os (
+  id                INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+  ordem_servico_id  INT UNSIGNED    NOT NULL,
+  servico_id        INT UNSIGNED    NOT NULL,
+  quantidade        INT UNSIGNED    NOT NULL DEFAULT 1,
+  valor_unitario    DECIMAL(10,2)   NOT NULL,
+  CONSTRAINT pk_item_os          PRIMARY KEY (id),
+  CONSTRAINT uq_item_os          UNIQUE (ordem_servico_id, servico_id),   -- mesmo serviço uma vez por OS
+  CONSTRAINT ck_item_os_qtd      CHECK (quantidade > 0),
+  CONSTRAINT ck_item_os_valor    CHECK (valor_unitario >= 0),
+  CONSTRAINT fk_item_os_os       FOREIGN KEY (ordem_servico_id) REFERENCES ordem_servico (id)
+    ON DELETE CASCADE ON UPDATE CASCADE,                     -- excluir a OS remove seus itens
+  CONSTRAINT fk_item_os_servico  FOREIGN KEY (servico_id) REFERENCES servico (id)
+    ON DELETE RESTRICT ON UPDATE CASCADE                     -- serviço já usado em OS não pode ser excluído
+) ENGINE=InnoDB;
