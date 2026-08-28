@@ -47,3 +47,17 @@ CREATE TABLE IF NOT EXISTS veiculo (
   CONSTRAINT fk_veiculo_cliente  FOREIGN KEY (cliente_id) REFERENCES cliente (id)
     ON DELETE RESTRICT ON UPDATE CASCADE                     -- cliente com veículo não pode ser excluído
 ) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+--  SERVICO: catálogo de serviços (mão de obra) e peças, com preço de tabela
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS servico (
+  id          INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+  descricao   VARCHAR(120)    NOT NULL,
+  tipo        ENUM('MAO_DE_OBRA', 'PECA') NOT NULL DEFAULT 'MAO_DE_OBRA',
+  preco       DECIMAL(10,2)   NOT NULL,
+  ativo       TINYINT(1)      NOT NULL DEFAULT 1,            -- inativo = não pode entrar em novas OS
+  CONSTRAINT pk_servico            PRIMARY KEY (id),
+  CONSTRAINT uq_servico_descricao  UNIQUE (descricao),
+  CONSTRAINT ck_servico_preco      CHECK (preco >= 0)
+) ENGINE=InnoDB;
