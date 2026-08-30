@@ -1,0 +1,25 @@
+# Sobe apenas o MySQL. A aplicação Java roda fora do container (java -jar).
+#   docker compose up -d      -> inicia o banco (cria schema + seed na 1ª vez)
+#   docker compose down -v    -> apaga tudo e recomeça do zero
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: oficina-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: oficina
+      TZ: America/Sao_Paulo
+    ports:
+      - "3306:3306"
+    volumes:
+      # Scripts .sql desta pasta são executados em ordem alfabética na primeira inicialização
+      - ./sql:/docker-entrypoint-initdb.d:ro
+      - oficina-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  oficina-data:
