@@ -20,6 +20,10 @@ public final class App {
 
         // 1) Banco: garante o schema e testa a conexão antes de aceitar requisições
         try {
+            if (Config.dbAutoSchema()) {
+                Database.ensureSchema();
+                System.out.println("Schema verificado (sql/01_schema.sql).");
+            }
             try (Connection c = Database.getConnection()) {
                 System.out.println("Conectado ao banco: " + c.getMetaData().getDatabaseProductName()
                         + " " + c.getMetaData().getDatabaseProductVersion());
