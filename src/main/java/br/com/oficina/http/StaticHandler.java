@@ -38,6 +38,10 @@ public final class StaticHandler implements HttpHandler {
         if (caminho.equals("/") || caminho.isEmpty()) {
             caminho = "/index.html";
         }
+        if (caminho.contains("..")) { // proteção contra path traversal
+            enviar(ex, 403, "text/plain; charset=utf-8", "Acesso negado".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
 
         try (InputStream in = StaticHandler.class.getResourceAsStream("/static" + caminho)) {
             if (in == null) {
