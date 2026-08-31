@@ -1,5 +1,6 @@
 package br.com.oficina;
 
+import br.com.oficina.api.ClienteHandler;
 import br.com.oficina.config.Config;
 import br.com.oficina.db.Database;
 import com.sun.net.httpserver.HttpServer;
@@ -37,6 +38,7 @@ public final class App {
 
         // 2) Rotas
         HttpServer server = HttpServer.create(new InetSocketAddress(Config.port()), 0);
+        server.createContext("/api/clientes", new ClienteHandler());
 
         // 3) Uma thread virtual por requisição (Java 21)
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
