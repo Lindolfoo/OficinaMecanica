@@ -1,0 +1,68 @@
+/* Identidade visual: grafite + laranja de sinalização (mundo da oficina). Resto é Bootstrap padrão. */
+:root {
+  --oficina-grafite: #1f2428;
+  --oficina-laranja: #e2590b;
+  --oficina-laranja-escuro: #c24c08;
+}
+
+body {
+  background: #f3f4f6;
+}
+
+.topo {
+  background: var(--oficina-grafite);
+  border-bottom: 3px solid var(--oficina-laranja);
+}
+
+.text-accent {
+  color: var(--oficina-laranja);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--oficina-laranja);
+  --bs-btn-border-color: var(--oficina-laranja);
+  --bs-btn-hover-bg: var(--oficina-laranja-escuro);
+  --bs-btn-hover-border-color: var(--oficina-laranja-escuro);
+  --bs-btn-active-bg: var(--oficina-laranja-escuro);
+  --bs-btn-active-border-color: var(--oficina-laranja-escuro);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--oficina-laranja);
+  --bs-btn-border-color: var(--oficina-laranja);
+  --bs-btn-hover-bg: var(--oficina-laranja);
+  --bs-btn-hover-border-color: var(--oficina-laranja);
+  --bs-btn-active-bg: var(--oficina-laranja);
+  --bs-btn-active-border-color: var(--oficina-laranja);
+}
+
+.nav-tabs .nav-link {
+  color: #495057;
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--oficina-laranja-escuro);
+  font-weight: 600;
+  border-top: 3px solid var(--oficina-laranja);
+}
+
+.busca {
+  max-width: 360px;
+}
+
+.card {
+  border: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+}
+
+.table thead th {
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #6c757d;
+}
+
+:focus-visible {
+  outline: 3px solid var(--oficina-laranja);
+  outline-offset: 2px;
+}

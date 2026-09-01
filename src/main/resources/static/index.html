@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oficina Mecânica · Ordens de Serviço</title>
+  <link href="vendor/css/bootstrap.min.css" rel="stylesheet">
+  <link href="vendor/css/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-dark topo">
+  <div class="container">
+    <span class="navbar-brand d-flex align-items-center gap-2">
+      <i class="bi bi-wrench-adjustable-circle fs-4 text-accent"></i>
+      <span>Oficina Mecânica</span>
+    </span>
+    <span class="navbar-text small text-secondary">NP1 · Banco de Dados · UNIP</span>
+  </div>
+</nav>
+
+<main class="container py-4">
+
+  <ul class="nav nav-tabs mb-4" id="abas" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabClientes" type="button"><i class="bi bi-people"></i> Clientes</button></li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ===================== CLIENTES ===================== -->
+    <div class="tab-pane fade show active" id="tabClientes">
+      <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+        <div class="input-group busca">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="search" id="buscaCliente" class="form-control" placeholder="Buscar por nome ou CPF" autocomplete="off">
+        </div>
+        <button class="btn btn-primary" id="btnNovoCliente"><i class="bi bi-plus-lg"></i> Novo cliente</button>
+      </div>
+
+      <div class="table-responsive card">
+        <table class="table table-hover align-middle mb-0" id="tabelaClientes">
+          <thead class="table-light">
+            <tr>
+              <th style="width:64px">#</th>
+              <th>Nome</th>
+              <th>CPF</th>
+              <th>Telefone</th>
+              <th>E-mail</th>
+              <th class="text-end" style="width:110px">Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="text-secondary small mt-2 mb-0" id="totalClientes"></p>
+    </div>
+
+
+  </div>
+</main>
+
+<!-- ===================== MODAL: CLIENTE ===================== -->
+<div class="modal fade" id="modalCliente" tabindex="-1" aria-labelledby="tituloModalCliente">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formCliente" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloModalCliente">Novo cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="clienteId">
+
+        <div class="mb-3">
+          <label class="form-label" for="nome">Nome <span class="text-danger">*</span></label>
+          <input name="nome" id="nome" class="form-control" required minlength="2" maxlength="100" autocomplete="off">
+          <div class="invalid-feedback">Informe o nome (2 a 100 caracteres).</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="cpf">CPF <span class="text-danger">*</span></label>
+          <input name="cpf" id="cpf" class="form-control" required maxlength="14"
+                 pattern="\d{3}\.?\d{3}\.?\d{3}-?\d{2}" placeholder="000.000.000-00" inputmode="numeric" autocomplete="off">
+          <div class="invalid-feedback">Informe os 11 dígitos do CPF.</div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-5 mb-3">
+            <label class="form-label" for="telefone">Telefone</label>
+            <input name="telefone" id="telefone" class="form-control" maxlength="20" placeholder="(15) 99999-9999" autocomplete="off">
+          </div>
+          <div class="col-md-7 mb-3">
+            <label class="form-label" for="email">E-mail</label>
+            <input type="email" name="email" id="email" class="form-control" maxlength="120" autocomplete="off">
+            <div class="invalid-feedback">E-mail inválido.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSalvarCliente">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
+
+<script src="vendor/js/jquery.min.js"></script>
+<script src="vendor/js/bootstrap.bundle.min.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
