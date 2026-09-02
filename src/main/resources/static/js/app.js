@@ -149,7 +149,106 @@
   });
 
 
+  // ------------------------------------------------------------ SERVIÇOS
+
+  const modalServico = new bootstrap.Modal('#modalServico');
+
+  function rotuloTipo(tipo) {
+    return tipo === 'PECA' ? 'Peça' : 'Mão de obra';
+  }
+
+  function carregarServicos() {
+    const busca = $('#buscaServico').val().trim();
+    $.getJSON(API + '/servicos', busca ? { busca: busca } : {})
+      .done(function (lista) {
+        const $tb = $('#tabelaServicos tbody').empty();
+        $('#totalServicos').text(lista.length + ' item(ns) no catálogo');
+        if (!lista.length) {
+          $tb.append('<tr><td colspan="6" class="text-center text-secondary py-4">Nenhum serviço encontrado.</td></tr>');
+          return;
+        }
+        lista.forEach(function (s) {
+          $tb.append(
+            '<tr data-id="' + s.id + '">' +
+              '<td class="text-secondary">' + s.id + '</td>' +
+              '<td class="fw-medium descricao">' + esc(s.descricao) + '</td>' +
+              '<td><span class="badge text-bg-light border">' + rotuloTipo(s.tipo) + '</span></td>' +
+              '<td class="text-end">' + fmtMoeda(s.preco) + '</td>' +
+              '<td>' + (s.ativo
+                ? '<span class="badge text-bg-success">Disponível</span>'
+                : '<span class="badge text-bg-secondary">Inativo</span>') + '</td>' +
+              '<td class="text-end text-nowrap">' +
+                '<button class="btn btn-sm btn-outline-primary btn-editar" title="Editar"><i class="bi bi-pencil"></i></button> ' +
+                '<button class="btn btn-sm btn-outline-danger btn-excluir" title="Excluir"><i class="bi bi-trash"></i></button>' +
+              '</td>' +
+            '</tr>');
+        });
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  }
+
+  function abrirModalServico(s) {
+    const $f = $('#formServico');
+    $f[0].reset();
+    $f.removeClass('was-validated');
+    $('#servicoId').val(s ? s.id : '');
+    $('#tituloModalServico').text(s ? 'Editar serviço #' + s.id : 'Novo serviço');
+    if (s) {
+      $('#descricao').val(s.descricao);
+      $('#tipo').val(s.tipo);
+      $('#preco').val(s.preco);
+      $('#ativo').prop('checked', s.ativo);
+    } else {
+      $('#ativo').prop('checked', true);
+    }
+    modalServico.show();
+  }
+
+  $('#btnNovoServico').on('click', function () { abrirModalServico(null); });
+  $('#buscaServico').on('input', debounce(carregarServicos, 250));
+
+  $('#tabelaServicos').on('click', '.btn-editar', function () {
+    $.getJSON(API + '/servicos/' + $(this).closest('tr').data('id'))
+      .done(abrirModalServico)
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
+
+  $('#tabelaServicos').on('click', '.btn-excluir', function () {
+    const $tr = $(this).closest('tr');
+    if (!window.confirm('Excluir "' + $tr.find('.descricao').text() + '" do catálogo?')) return;
+    $.ajax({ url: API + '/servicos/' + $tr.data('id'), type: 'DELETE' })
+      .done(function () { toast('Serviço excluído'); carregarServicos(); })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
+
+  $('#formServico').on('submit', function (e) {
+    e.preventDefault();
+    if (!this.checkValidity()) { $(this).addClass('was-validated'); return; }
+    const id = $('#servicoId').val();
+    const $btn = $('#btnSalvarServico').prop('disabled', true);
+    $.ajax({
+      url: id ? API + '/servicos/' + id : API + '/servicos',
+      type: id ? 'PUT' : 'POST',
+      data: $(this).serialize() + '&ativo=' + $('#ativo').is(':checked')
+    })
+      .done(function () {
+        modalServico.hide();
+        toast(id ? 'Serviço atualizado' : 'Serviço cadastrado');
+        carregarServicos();
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
+      .always(function () { $btn.prop('disabled', false); });
+  });
+
   // ------------------------------------------------------------ inicialização
   carregarClientes();
+
+  const jaCarregada = { tabClientes: true };
+  $('#abas button').on('shown.bs.tab', function (e) {
+    const alvo = $(e.target).data('bs-target').substring(1);
+    if (jaCarregada[alvo]) return;
+    jaCarregada[alvo] = true;
+    if (alvo === 'tabServicos') carregarServicos();
+  });
 
 })(jQuery);
