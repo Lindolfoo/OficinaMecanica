@@ -6,7 +6,7 @@
 
   <groupId>br.com.oficina</groupId>
   <artifactId>oficina-np1</artifactId>
-  <version>0.3.0-SNAPSHOT</version>
+  <version>0.3.0</version>
   <packaging>jar</packaging>
   <name>Oficina Mecânica - NP1 Banco de Dados</name>
   <description>Aplicação CRUD em Java puro (JDK HttpServer + JDBC) com MySQL. Sem frameworks.</description>
