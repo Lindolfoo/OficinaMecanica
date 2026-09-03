@@ -149,6 +149,104 @@
   });
 
 
+  // ------------------------------------------------------------ VEÍCULOS
+
+  const modalVeiculo = new bootstrap.Modal('#modalVeiculo');
+
+  function carregarVeiculos() {
+    const busca = $('#buscaVeiculo').val().trim();
+    $.getJSON(API + '/veiculos', busca ? { busca: busca } : {})
+      .done(function (lista) {
+        const $tb = $('#tabelaVeiculos tbody').empty();
+        $('#totalVeiculos').text(lista.length + ' veículo(s)');
+        if (!lista.length) {
+          $tb.append('<tr><td colspan="7" class="text-center text-secondary py-4">Nenhum veículo encontrado.</td></tr>');
+          return;
+        }
+        lista.forEach(function (v) {
+          $tb.append(
+            '<tr data-id="' + v.id + '">' +
+              '<td class="text-secondary">' + v.id + '</td>' +
+              '<td><span class="badge text-bg-dark placa">' + esc(v.placa) + '</span></td>' +
+              '<td class="fw-medium">' + esc(v.marca) + ' ' + esc(v.modelo) + '</td>' +
+              '<td>' + v.ano + '</td>' +
+              '<td>' + esc(v.cor) + '</td>' +
+              '<td>' + esc(v.clienteNome) + '</td>' +
+              '<td class="text-end text-nowrap">' +
+                '<button class="btn btn-sm btn-outline-primary btn-editar" title="Editar"><i class="bi bi-pencil"></i></button> ' +
+                '<button class="btn btn-sm btn-outline-danger btn-excluir" title="Excluir"><i class="bi bi-trash"></i></button>' +
+              '</td>' +
+            '</tr>');
+        });
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  }
+
+  /** Preenche o <select> de proprietários com os clientes cadastrados. */
+  function carregarSelectClientes(selecionado) {
+    return $.getJSON(API + '/clientes').done(function (lista) {
+      const $sel = $('#veiculoCliente').empty().append('<option value="">Selecione…</option>');
+      lista.forEach(function (c) {
+        $sel.append($('<option>').val(c.id).text(c.nome + ' — ' + fmtCpf(c.cpf)));
+      });
+      if (selecionado) $sel.val(selecionado);
+    });
+  }
+
+  function abrirModalVeiculo(v) {
+    const $f = $('#formVeiculo');
+    $f[0].reset();
+    $f.removeClass('was-validated');
+    $('#veiculoId').val(v ? v.id : '');
+    $('#tituloModalVeiculo').text(v ? 'Editar veículo #' + v.id : 'Novo veículo');
+    carregarSelectClientes(v ? v.clienteId : null).done(function () {
+      if (v) {
+        $('#placa').val(v.placa);
+        $('#marca').val(v.marca);
+        $('#modelo').val(v.modelo);
+        $('#ano').val(v.ano);
+        $('#cor').val(v.cor);
+      }
+      modalVeiculo.show();
+    });
+  }
+
+  $('#btnNovoVeiculo').on('click', function () { abrirModalVeiculo(null); });
+  $('#buscaVeiculo').on('input', debounce(carregarVeiculos, 250));
+
+  $('#tabelaVeiculos').on('click', '.btn-editar', function () {
+    $.getJSON(API + '/veiculos/' + $(this).closest('tr').data('id'))
+      .done(abrirModalVeiculo)
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
+
+  $('#tabelaVeiculos').on('click', '.btn-excluir', function () {
+    const $tr = $(this).closest('tr');
+    if (!window.confirm('Excluir o veículo de placa ' + $tr.find('.placa').text() + '?')) return;
+    $.ajax({ url: API + '/veiculos/' + $tr.data('id'), type: 'DELETE' })
+      .done(function () { toast('Veículo excluído'); carregarVeiculos(); })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
+
+  $('#formVeiculo').on('submit', function (e) {
+    e.preventDefault();
+    if (!this.checkValidity()) { $(this).addClass('was-validated'); return; }
+    const id = $('#veiculoId').val();
+    const $btn = $('#btnSalvarVeiculo').prop('disabled', true);
+    $.ajax({
+      url: id ? API + '/veiculos/' + id : API + '/veiculos',
+      type: id ? 'PUT' : 'POST',
+      data: $(this).serialize()
+    })
+      .done(function () {
+        modalVeiculo.hide();
+        toast(id ? 'Veículo atualizado' : 'Veículo cadastrado');
+        carregarVeiculos();
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
+      .always(function () { $btn.prop('disabled', false); });
+  });
+
   // ------------------------------------------------------------ SERVIÇOS
 
   const modalServico = new bootstrap.Modal('#modalServico');
@@ -248,6 +346,7 @@
     const alvo = $(e.target).data('bs-target').substring(1);
     if (jaCarregada[alvo]) return;
     jaCarregada[alvo] = true;
+    if (alvo === 'tabVeiculos') carregarVeiculos();
     if (alvo === 'tabServicos') carregarServicos();
   });
 
