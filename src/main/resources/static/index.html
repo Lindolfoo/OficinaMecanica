@@ -24,6 +24,8 @@
 
   <ul class="nav nav-tabs mb-4" id="abas" role="tablist">
     <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabClientes" type="button"><i class="bi bi-people"></i> Clientes</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabVeiculos" type="button"><i class="bi bi-car-front"></i> Veículos</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabServicos" type="button"><i class="bi bi-tools"></i> Serviços</button></li>
   </ul>
 
   <div class="tab-content">
@@ -54,6 +56,63 @@
         </table>
       </div>
       <p class="text-secondary small mt-2 mb-0" id="totalClientes"></p>
+    </div>
+
+    <!-- ===================== VEÍCULOS ===================== -->
+    <div class="tab-pane fade" id="tabVeiculos">
+      <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+        <div class="input-group busca">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="search" id="buscaVeiculo" class="form-control" placeholder="Buscar por placa, marca ou modelo" autocomplete="off">
+        </div>
+        <button class="btn btn-primary" id="btnNovoVeiculo"><i class="bi bi-plus-lg"></i> Novo veículo</button>
+      </div>
+
+      <div class="table-responsive card">
+        <table class="table table-hover align-middle mb-0" id="tabelaVeiculos">
+          <thead class="table-light">
+            <tr>
+              <th style="width:64px">#</th>
+              <th>Placa</th>
+              <th>Marca / Modelo</th>
+              <th>Ano</th>
+              <th>Cor</th>
+              <th>Proprietário</th>
+              <th class="text-end" style="width:110px">Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="text-secondary small mt-2 mb-0" id="totalVeiculos"></p>
+    </div>
+
+    <!-- ===================== SERVIÇOS ===================== -->
+    <div class="tab-pane fade" id="tabServicos">
+      <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+        <div class="input-group busca">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="search" id="buscaServico" class="form-control" placeholder="Buscar serviço ou peça" autocomplete="off">
+        </div>
+        <button class="btn btn-primary" id="btnNovoServico"><i class="bi bi-plus-lg"></i> Novo serviço</button>
+      </div>
+
+      <div class="table-responsive card">
+        <table class="table table-hover align-middle mb-0" id="tabelaServicos">
+          <thead class="table-light">
+            <tr>
+              <th style="width:64px">#</th>
+              <th>Descrição</th>
+              <th>Tipo</th>
+              <th class="text-end">Preço</th>
+              <th>Situação</th>
+              <th class="text-end" style="width:110px">Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="text-secondary small mt-2 mb-0" id="totalServicos"></p>
     </div>
 
 
@@ -99,6 +158,108 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="submit" class="btn btn-primary" id="btnSalvarCliente">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: VEÍCULO ===================== -->
+<div class="modal fade" id="modalVeiculo" tabindex="-1" aria-labelledby="tituloModalVeiculo">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formVeiculo" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloModalVeiculo">Novo veículo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="veiculoId">
+
+        <div class="mb-3">
+          <label class="form-label" for="veiculoCliente">Proprietário <span class="text-danger">*</span></label>
+          <select name="clienteId" id="veiculoCliente" class="form-select" required></select>
+          <div class="invalid-feedback">Selecione o proprietário.</div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="placa">Placa <span class="text-danger">*</span></label>
+            <input name="placa" id="placa" class="form-control text-uppercase" required maxlength="8"
+                   placeholder="ABC1D23" autocomplete="off">
+            <div class="invalid-feedback">Use o formato ABC1234 ou ABC1D23.</div>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="ano">Ano <span class="text-danger">*</span></label>
+            <input type="number" name="ano" id="ano" class="form-control" required min="1950" max="2100" placeholder="2020">
+            <div class="invalid-feedback">Informe um ano entre 1950 e 2100.</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="marca">Marca <span class="text-danger">*</span></label>
+            <input name="marca" id="marca" class="form-control" required maxlength="50" autocomplete="off">
+            <div class="invalid-feedback">Informe a marca.</div>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="modelo">Modelo <span class="text-danger">*</span></label>
+            <input name="modelo" id="modelo" class="form-control" required maxlength="60" autocomplete="off">
+            <div class="invalid-feedback">Informe o modelo.</div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="cor">Cor</label>
+          <input name="cor" id="cor" class="form-control" maxlength="30" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSalvarVeiculo">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: SERVIÇO ===================== -->
+<div class="modal fade" id="modalServico" tabindex="-1" aria-labelledby="tituloModalServico">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formServico" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloModalServico">Novo serviço</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="servicoId">
+
+        <div class="mb-3">
+          <label class="form-label" for="descricao">Descrição <span class="text-danger">*</span></label>
+          <input name="descricao" id="descricao" class="form-control" required minlength="3" maxlength="120" autocomplete="off">
+          <div class="invalid-feedback">Informe a descrição (3 a 120 caracteres).</div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="tipo">Tipo <span class="text-danger">*</span></label>
+            <select name="tipo" id="tipo" class="form-select" required>
+              <option value="MAO_DE_OBRA">Mão de obra</option>
+              <option value="PECA">Peça</option>
+            </select>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label" for="preco">Preço (R$) <span class="text-danger">*</span></label>
+            <input type="number" name="preco" id="preco" class="form-control" required min="0" step="0.01" placeholder="0,00">
+            <div class="invalid-feedback">Informe um preço válido.</div>
+          </div>
+        </div>
+
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="ativo" checked>
+          <label class="form-check-label" for="ativo">Disponível para novas ordens de serviço</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSalvarServico">Salvar</button>
       </div>
     </form>
   </div>
