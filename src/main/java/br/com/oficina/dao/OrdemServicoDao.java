@@ -18,6 +18,11 @@ import java.util.Optional;
 
 /**
  * CRUD da ORDEM_SERVICO e de seus itens.
+ *
+ * É aqui que está a parte mais importante do trabalho em termos de banco:
+ * a criação de uma OS com seus itens acontece dentro de uma TRANSAÇÃO explícita
+ * (setAutoCommit(false) / commit / rollback), de modo que nunca exista no banco
+ * uma OS gravada pela metade.
  */
 public class OrdemServicoDao {
 
@@ -78,6 +83,70 @@ public class OrdemServicoDao {
                     return Optional.empty();
                 }
                 return Optional.of(mapear(rs, listarItens(c, id)));
+            }
+        }
+    }
+
+    /**
+     * CREATE em TRANSAÇÃO: grava o cabeçalho e todos os itens como uma
+     * operação única. Qualquer falha (serviço inexistente, item duplicado,
+     * quantidade inválida) desfaz tudo com rollback.
+     *
+     * O preço de cada item é copiado do catálogo no momento da gravação, para
+     * que uma alteração futura no preço de tabela não altere OS já emitidas.
+     */
+    public OrdemServico inserirComItens(OrdemServico os, List<long[]> itens) throws SQLException {
+        String sqlOs = "INSERT INTO ordem_servico (veiculo_id, status, descricao_problema, km_atual, observacoes)"
+                + " VALUES (?, ?, ?, ?, ?)";
+        String sqlItem = "INSERT INTO item_os (ordem_servico_id, servico_id, quantidade, valor_unitario)"
+                + " SELECT ?, id, ?, preco FROM servico WHERE id = ? AND ativo = 1";
+
+        Connection c = null;
+        try {
+            c = Database.getConnection();
+            c.setAutoCommit(false);                       // ---- início da transação
+
+            long idGerado;
+            try (PreparedStatement ps = c.prepareStatement(sqlOs, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setLong(1, os.veiculoId());
+                ps.setString(2, os.status());
+                ps.setString(3, os.descricaoProblema());
+                setIntOuNulo(ps, 4, os.kmAtual());
+                ps.setString(5, os.observacoes());
+                ps.executeUpdate();
+                try (ResultSet chaves = ps.getGeneratedKeys()) {
+                    chaves.next();
+                    idGerado = chaves.getLong(1);
+                }
+            }
+
+            try (PreparedStatement ps = c.prepareStatement(sqlItem)) {
+                for (long[] item : itens) {              // item = {servicoId, quantidade}
+                    ps.setLong(1, idGerado);
+                    ps.setLong(2, item[1]);
+                    ps.setLong(3, item[0]);
+                    ps.addBatch();
+                }
+                for (int linhas : ps.executeBatch()) {
+                    if (linhas == 0) {                   // serviço inexistente ou inativo
+                        throw new SQLException("Serviço inválido ou inativo informado na ordem de serviço");
+                    }
+                }
+            }
+
+            OrdemServico criada = buscarPorId(c, idGerado).orElseThrow();
+            c.commit();                                  // ---- fim da transação
+            return criada;
+
+        } catch (SQLException e) {
+            if (c != null) {
+                c.rollback();                            // desfaz cabeçalho + itens já inseridos
+            }
+            throw e;
+        } finally {
+            if (c != null) {
+                c.setAutoCommit(true);
+                c.close();
             }
         }
     }
