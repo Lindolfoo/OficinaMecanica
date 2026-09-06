@@ -26,6 +26,7 @@
     <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabClientes" type="button"><i class="bi bi-people"></i> Clientes</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabVeiculos" type="button"><i class="bi bi-car-front"></i> Veículos</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabServicos" type="button"><i class="bi bi-tools"></i> Serviços</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabOrdens" type="button"><i class="bi bi-clipboard-check"></i> Ordens de Serviço</button></li>
   </ul>
 
   <div class="tab-content">
@@ -115,6 +116,46 @@
       <p class="text-secondary small mt-2 mb-0" id="totalServicos"></p>
     </div>
 
+    <!-- ===================== ORDENS DE SERVIÇO ===================== -->
+    <div class="tab-pane fade" id="tabOrdens">
+      <div class="row g-2 mb-3" id="resumoOs"></div>
+
+      <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2 flex-wrap">
+          <div class="input-group busca">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" id="buscaOrdem" class="form-control" placeholder="Buscar por placa, cliente ou problema" autocomplete="off">
+          </div>
+          <select id="filtroStatus" class="form-select" style="max-width:200px">
+            <option value="">Todos os status</option>
+            <option value="ABERTA">Aberta</option>
+            <option value="EM_ANDAMENTO">Em andamento</option>
+            <option value="CONCLUIDA">Concluída</option>
+            <option value="CANCELADA">Cancelada</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btnNovaOrdem"><i class="bi bi-plus-lg"></i> Nova ordem de serviço</button>
+      </div>
+
+      <div class="table-responsive card">
+        <table class="table table-hover align-middle mb-0" id="tabelaOrdens">
+          <thead class="table-light">
+            <tr>
+              <th style="width:64px">#</th>
+              <th>Veículo</th>
+              <th>Cliente</th>
+              <th>Problema</th>
+              <th>Abertura</th>
+              <th>Status</th>
+              <th class="text-end">Total</th>
+              <th class="text-end" style="width:150px">Ações</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="text-secondary small mt-2 mb-0" id="totalOrdens"></p>
+    </div>
 
   </div>
 </main>
@@ -260,6 +301,102 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="submit" class="btn btn-primary" id="btnSalvarServico">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: ORDEM DE SERVIÇO ===================== -->
+<div class="modal fade" id="modalOrdem" tabindex="-1" aria-labelledby="tituloModalOrdem">
+  <div class="modal-dialog modal-lg">
+    <form class="modal-content" id="formOrdem" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloModalOrdem">Nova ordem de serviço</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="ordemId">
+
+        <div class="row">
+          <div class="col-md-7 mb-3">
+            <label class="form-label" for="ordemVeiculo">Veículo <span class="text-danger">*</span></label>
+            <select name="veiculoId" id="ordemVeiculo" class="form-select" required></select>
+            <div class="invalid-feedback">Selecione o veículo.</div>
+          </div>
+          <div class="col-md-5 mb-3">
+            <label class="form-label" for="ordemStatus">Status</label>
+            <select name="status" id="ordemStatus" class="form-select">
+              <option value="ABERTA">Aberta</option>
+              <option value="EM_ANDAMENTO">Em andamento</option>
+              <option value="CONCLUIDA">Concluída</option>
+              <option value="CANCELADA">Cancelada</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="descricaoProblema">Problema relatado <span class="text-danger">*</span></label>
+          <textarea name="descricaoProblema" id="descricaoProblema" class="form-control" rows="2"
+                    required minlength="5" maxlength="500"></textarea>
+          <div class="invalid-feedback">Descreva o problema (mínimo 5 caracteres).</div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label" for="kmAtual">Quilometragem</label>
+            <input type="number" name="kmAtual" id="kmAtual" class="form-control" min="0" max="9999999">
+          </div>
+          <div class="col-md-8 mb-3">
+            <label class="form-label" for="observacoes">Observações</label>
+            <input name="observacoes" id="observacoes" class="form-control" maxlength="500" autocomplete="off">
+          </div>
+        </div>
+
+        <hr>
+
+        <h6 class="mb-3">Serviços e peças</h6>
+        <div class="row g-2 align-items-end mb-2">
+          <div class="col-md-7">
+            <label class="form-label small" for="itemServico">Item do catálogo</label>
+            <select id="itemServico" class="form-select"></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small" for="itemQuantidade">Quantidade</label>
+            <input type="number" id="itemQuantidade" class="form-control" value="1" min="1" max="999">
+          </div>
+          <div class="col-md-2 d-grid">
+            <button type="button" class="btn btn-outline-primary" id="btnAdicionarItem">Adicionar</button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle" id="tabelaItens">
+            <thead class="table-light">
+              <tr>
+                <th>Item</th>
+                <th class="text-center" style="width:90px">Qtd.</th>
+                <th class="text-end" style="width:110px">Unitário</th>
+                <th class="text-end" style="width:110px">Subtotal</th>
+                <th style="width:48px"></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr class="fw-semibold">
+                <td colspan="3" class="text-end">Total da OS</td>
+                <td class="text-end" id="totalOs">R$ 0,00</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p class="small text-secondary mb-0">
+          O preço é copiado do catálogo no momento da gravação, para que reajustes futuros não alterem ordens já emitidas.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSalvarOrdem">Salvar</button>
       </div>
     </form>
   </div>
