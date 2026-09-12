@@ -1,6 +1,7 @@
 package br.com.oficina;
 
 import br.com.oficina.api.ClienteHandler;
+import br.com.oficina.api.OrdemServicoHandler;
 import br.com.oficina.api.ServicoHandler;
 import br.com.oficina.api.VeiculoHandler;
 import br.com.oficina.config.Config;
@@ -44,6 +45,7 @@ public final class App {
         server.createContext("/api/clientes", new ClienteHandler());
         server.createContext("/api/veiculos", new VeiculoHandler());
         server.createContext("/api/servicos", new ServicoHandler());
+        server.createContext("/api/ordens", new OrdemServicoHandler());
         server.createContext("/", new StaticHandler());
 
         // 3) Uma thread virtual por requisição (Java 21)

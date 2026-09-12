@@ -338,6 +338,228 @@
       .always(function () { $btn.prop('disabled', false); });
   });
 
+  // ------------------------------------------------------------ ORDENS DE SERVIÇO
+
+  const modalOrdem = new bootstrap.Modal('#modalOrdem');
+
+  /* Itens em edição no modal. Numa OS nova eles só vão para o banco no submit
+     (gravados em uma única transação); numa OS existente cada item é enviado
+     imediatamente para a API. */
+  let itensEmEdicao = [];
+  let catalogoServicos = [];
+
+  const ROTULO_STATUS = {
+    ABERTA: ['Aberta', 'text-bg-primary'],
+    EM_ANDAMENTO: ['Em andamento', 'text-bg-warning'],
+    CONCLUIDA: ['Concluída', 'text-bg-success'],
+    CANCELADA: ['Cancelada', 'text-bg-secondary']
+  };
+
+  function badgeStatus(status) {
+    const r = ROTULO_STATUS[status] || [status, 'text-bg-light'];
+    return '<span class="badge ' + r[1] + '">' + r[0] + '</span>';
+  }
+
+  function carregarResumo() {
+    $.getJSON(API + '/ordens/resumo').done(function (lista) {
+      const $r = $('#resumoOs').empty();
+      lista.forEach(function (l) {
+        const r = ROTULO_STATUS[l.status] || [l.status, ''];
+        $r.append(
+          '<div class="col-6 col-md-3">' +
+            '<div class="card p-3 h-100">' +
+              '<div class="small text-secondary">' + r[0] + '</div>' +
+              '<div class="fs-4 fw-semibold">' + l.quantidade + '</div>' +
+              '<div class="small text-secondary">' + fmtMoeda(l.total) + '</div>' +
+            '</div>' +
+          '</div>');
+      });
+    });
+  }
+
+  function carregarOrdens() {
+    const params = {};
+    const busca = $('#buscaOrdem').val().trim();
+    const status = $('#filtroStatus').val();
+    if (busca) params.busca = busca;
+    if (status) params.status = status;
+
+    $.getJSON(API + '/ordens', params)
+      .done(function (lista) {
+        const $tb = $('#tabelaOrdens tbody').empty();
+        $('#totalOrdens').text(lista.length + ' ordem(ns) de serviço');
+        if (!lista.length) {
+          $tb.append('<tr><td colspan="8" class="text-center text-secondary py-4">Nenhuma ordem de serviço encontrada.</td></tr>');
+          return;
+        }
+        lista.forEach(function (o) {
+          $tb.append(
+            '<tr data-id="' + o.id + '">' +
+              '<td class="text-secondary">' + o.id + '</td>' +
+              '<td><span class="badge text-bg-dark">' + esc(o.veiculoPlaca) + '</span><br>' +
+                  '<small class="text-secondary">' + esc(o.veiculoDescricao) + '</small></td>' +
+              '<td>' + esc(o.clienteNome) + '</td>' +
+              '<td class="problema">' + esc(o.descricaoProblema) + '</td>' +
+              '<td class="text-nowrap">' + fmtData(o.dataAbertura) + '</td>' +
+              '<td>' + badgeStatus(o.status) + '</td>' +
+              '<td class="text-end fw-medium">' + fmtMoeda(o.valorTotal) + '</td>' +
+              '<td class="text-end text-nowrap">' +
+                '<button class="btn btn-sm btn-outline-primary btn-editar" title="Abrir"><i class="bi bi-pencil"></i></button> ' +
+                '<button class="btn btn-sm btn-outline-danger btn-excluir" title="Excluir"><i class="bi bi-trash"></i></button>' +
+              '</td>' +
+            '</tr>');
+        });
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+    carregarResumo();
+  }
+
+  /** Carrega os <select> de veículo e de itens do catálogo (apenas ativos). */
+  function carregarSelectsOrdem(veiculoSelecionado) {
+    const p1 = $.getJSON(API + '/veiculos').done(function (lista) {
+      const $sel = $('#ordemVeiculo').empty().append('<option value="">Selecione…</option>');
+      lista.forEach(function (v) {
+        $sel.append($('<option>').val(v.id).text(v.placa + ' — ' + v.marca + ' ' + v.modelo + ' (' + v.clienteNome + ')'));
+      });
+      if (veiculoSelecionado) $sel.val(veiculoSelecionado);
+    });
+
+    const p2 = $.getJSON(API + '/servicos', { ativos: true }).done(function (lista) {
+      catalogoServicos = lista;
+      const $sel = $('#itemServico').empty();
+      lista.forEach(function (s) {
+        $sel.append($('<option>').val(s.id).text(s.descricao + ' — ' + fmtMoeda(s.preco)));
+      });
+    });
+
+    return $.when(p1, p2);
+  }
+
+  function renderItens() {
+    const $tb = $('#tabelaItens tbody').empty();
+    if (!itensEmEdicao.length) {
+      $tb.append('<tr><td colspan="5" class="text-center text-secondary py-3">Nenhum item lançado ainda.</td></tr>');
+    }
+    let total = 0;
+    itensEmEdicao.forEach(function (it, indice) {
+      const subtotal = Number(it.valorUnitario) * it.quantidade;
+      total += subtotal;
+      $tb.append(
+        '<tr data-indice="' + indice + '">' +
+          '<td>' + esc(it.servicoDescricao) + '</td>' +
+          '<td class="text-center">' + it.quantidade + '</td>' +
+          '<td class="text-end">' + fmtMoeda(it.valorUnitario) + '</td>' +
+          '<td class="text-end">' + fmtMoeda(subtotal) + '</td>' +
+          '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger btn-remover-item" title="Remover"><i class="bi bi-x-lg"></i></button></td>' +
+        '</tr>');
+    });
+    $('#totalOs').text(fmtMoeda(total));
+  }
+
+  function abrirModalOrdem(o) {
+    const $f = $('#formOrdem');
+    $f[0].reset();
+    $f.removeClass('was-validated');
+    $('#ordemId').val(o ? o.id : '');
+    $('#tituloModalOrdem').text(o ? 'Ordem de serviço #' + o.id : 'Nova ordem de serviço');
+    itensEmEdicao = o ? o.itens.slice() : [];
+
+    carregarSelectsOrdem(o ? o.veiculoId : null).done(function () {
+      if (o) {
+        $('#ordemStatus').val(o.status);
+        $('#descricaoProblema').val(o.descricaoProblema);
+        $('#kmAtual').val(o.kmAtual);
+        $('#observacoes').val(o.observacoes);
+      }
+      renderItens();
+      modalOrdem.show();
+    });
+  }
+
+  $('#btnNovaOrdem').on('click', function () { abrirModalOrdem(null); });
+  $('#buscaOrdem').on('input', debounce(carregarOrdens, 250));
+  $('#filtroStatus').on('change', carregarOrdens);
+
+  $('#tabelaOrdens').on('click', '.btn-editar', function () {
+    $.getJSON(API + '/ordens/' + $(this).closest('tr').data('id'))
+      .done(abrirModalOrdem)
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
+
+  $('#tabelaOrdens').on('click', '.btn-excluir', function () {
+    const id = $(this).closest('tr').data('id');
+    if (!window.confirm('Excluir a ordem de serviço #' + id + ' e todos os seus itens?')) return;
+    $.ajax({ url: API + '/ordens/' + id, type: 'DELETE' })
+      .done(function () { toast('Ordem de serviço excluída'); carregarOrdens(); })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
+
+  $('#btnAdicionarItem').on('click', function () {
+    const servicoId = Number($('#itemServico').val());
+    const quantidade = Number($('#itemQuantidade').val());
+    if (!servicoId) { toast('Selecione um item do catálogo', 'danger'); return; }
+    if (!(quantidade >= 1)) { toast('Quantidade deve ser no mínimo 1', 'danger'); return; }
+    if (itensEmEdicao.some(function (i) { return Number(i.servicoId) === servicoId; })) {
+      toast('Esse item já está na ordem de serviço', 'danger');
+      return;
+    }
+
+    const ordemId = $('#ordemId').val();
+    if (ordemId) {
+      // OS já existe: grava o item direto na API
+      $.ajax({ url: API + '/ordens/' + ordemId + '/itens', type: 'POST',
+               data: { servicoId: servicoId, quantidade: quantidade } })
+        .done(function (os) { itensEmEdicao = os.itens; renderItens(); $('#itemQuantidade').val(1); })
+        .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+    } else {
+      // OS nova: acumula em memória; tudo é gravado junto, em transação, no submit
+      const s = catalogoServicos.find(function (x) { return Number(x.id) === servicoId; });
+      itensEmEdicao.push({ servicoId: s.id, servicoDescricao: s.descricao, quantidade: quantidade, valorUnitario: s.preco });
+      renderItens();
+      $('#itemQuantidade').val(1);
+    }
+  });
+
+  $('#tabelaItens').on('click', '.btn-remover-item', function () {
+    const indice = $(this).closest('tr').data('indice');
+    const item = itensEmEdicao[indice];
+    const ordemId = $('#ordemId').val();
+
+    if (ordemId && item.id) {
+      $.ajax({ url: API + '/ordens/' + ordemId + '/itens/' + item.id, type: 'DELETE' })
+        .done(function (os) { itensEmEdicao = os.itens; renderItens(); })
+        .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+    } else {
+      itensEmEdicao.splice(indice, 1);
+      renderItens();
+    }
+  });
+
+  $('#formOrdem').on('submit', function (e) {
+    e.preventDefault();
+    if (!this.checkValidity()) { $(this).addClass('was-validated'); return; }
+    const id = $('#ordemId').val();
+    const $btn = $('#btnSalvarOrdem').prop('disabled', true);
+
+    let dados = $(this).serialize();
+    if (!id) {
+      // Envia os itens junto do cabeçalho: o servidor grava tudo em uma transação
+      itensEmEdicao.forEach(function (it) {
+        dados += '&servicoId=' + encodeURIComponent(it.servicoId) +
+                 '&quantidade=' + encodeURIComponent(it.quantidade);
+      });
+    }
+
+    $.ajax({ url: id ? API + '/ordens/' + id : API + '/ordens', type: id ? 'PUT' : 'POST', data: dados })
+      .done(function () {
+        modalOrdem.hide();
+        toast(id ? 'Ordem de serviço atualizada' : 'Ordem de serviço criada');
+        carregarOrdens();
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
+      .always(function () { $btn.prop('disabled', false); });
+  });
+
   // ------------------------------------------------------------ inicialização
   carregarClientes();
 
@@ -348,6 +570,7 @@
     jaCarregada[alvo] = true;
     if (alvo === 'tabVeiculos') carregarVeiculos();
     if (alvo === 'tabServicos') carregarServicos();
+    if (alvo === 'tabOrdens') carregarOrdens();
   });
 
 })(jQuery);
