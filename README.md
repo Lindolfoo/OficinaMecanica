@@ -250,8 +250,29 @@ São três camadas, de propósito:
 | ![Filtro por status](docs/prints/10-filtro-status.png) | ![Integridade](docs/prints/11-integridade-fk.png) |
 | Filtro por status | FK impedindo exclusão indevida |
 
-Mais prints em [`docs/prints/`](docs/prints/). As consultas usadas para comprovar
-a persistência dos dados no banco estão em [`docs/evidencias.sql`](docs/evidencias.sql).
+Mais prints em [`docs/prints/`](docs/prints/).
+
+### Persistência no banco
+
+Evidências colhidas no MySQL Workbench, com as consultas de
+[`docs/evidencias.sql`](docs/evidencias.sql):
+
+| | |
+|---|---|
+| ![Estrutura](docs/prints/12-banco-estrutura.png) | ![Cliente e veículo](docs/prints/13-banco-cliente-veiculo.png) |
+| As 5 tabelas no schema `oficina` | O 1:N entre cliente e veículo |
+| ![Total calculado](docs/prints/14-banco-os-total-calculado.png) | ![Itens](docs/prints/15-banco-itens-da-os.png) |
+| OS com JOIN duplo e total por `SUM` — não há coluna de total | Os itens gravados pela transação |
+| ![Constraints](docs/prints/16-banco-constraints.png) | ![Políticas das FKs](docs/prints/17-banco-fk-politicas.png) |
+| As 19 restrições que o banco tem | `RESTRICT`/`CASCADE` de cada FK |
+| ![FK bloqueia](docs/prints/18-banco-fk-bloqueia-exclusao.png) | ![Clientes gravados](docs/prints/19-banco-clientes-gravados.png) |
+| `ERROR 1451` — a FK recusa a exclusão | Os dados persistidos na tabela |
+| ![Confirmação da exclusão](docs/prints/20-crud-exclusao-confirmacao.png) | ![Cliente excluído no banco](docs/prints/21-banco-cliente-excluido.png) |
+| Exclusão pela tela de um cliente sem veículo | Depois de confirmar, o registro some do banco |
+| ![Edição: antes](docs/prints/22-crud-edicao-antes.png) | ![Edição: alterando](docs/prints/23-crud-edicao-alterando.png) |
+| Edição do cliente com o telefone original | Telefone novo digitado |
+| ![Edição salva](docs/prints/24-crud-edicao-salva.png) | |
+| A lista já com o telefone alterado | |
 
 ## Licença
 
