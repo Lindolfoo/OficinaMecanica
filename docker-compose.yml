@@ -10,7 +10,7 @@ services:
       MYSQL_DATABASE: oficina
       TZ: America/Sao_Paulo
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"   # só este computador; sem o 127.0.0.1 o MySQL (root/root) fica aberto na rede
     volumes:
       # Scripts .sql desta pasta são executados em ordem alfabética na primeira inicialização
       - ./sql:/docker-entrypoint-initdb.d:ro
