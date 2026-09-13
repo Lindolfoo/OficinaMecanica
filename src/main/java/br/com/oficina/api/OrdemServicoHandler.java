@@ -17,7 +17,7 @@ import java.util.Set;
 /**
  * Recurso /api/ordens
  *
- *   GET    /api/ordens                       lista (?status=ABERTA, ?busca=texto)
+ *   GET    /api/ordens                       lista (?status=ABERTA, ?busca=texto, ?veiculoId=1)
  *   GET    /api/ordens/resumo                total e quantidade por status (GROUP BY)
  *   GET    /api/ordens/{id}                  uma OS com seus itens
  *   POST   /api/ordens                       cria OS + itens (transação)
@@ -44,7 +44,10 @@ public class OrdemServicoHandler extends BaseHandler {
             if (status != null && !status.isBlank() && !STATUS_VALIDOS.contains(status)) {
                 throw new ApiException(400, "Status inválido: " + status);
             }
-            HttpUtil.sendJson(ex, 200, dao.listar(status == null || status.isBlank() ? null : status, q.get("busca")));
+            String veiculo = q.get("veiculoId");
+            Long veiculoId = (veiculo == null || veiculo.isBlank()) ? null : HttpUtil.parseId(veiculo);
+            HttpUtil.sendJson(ex, 200,
+                    dao.listar(status == null || status.isBlank() ? null : status, q.get("busca"), veiculoId));
             return;
         }
 
