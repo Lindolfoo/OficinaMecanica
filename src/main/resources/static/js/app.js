@@ -152,6 +152,7 @@
   // ------------------------------------------------------------ VEÍCULOS
 
   const modalVeiculo = new bootstrap.Modal('#modalVeiculo');
+  const modalHistorico = new bootstrap.Modal('#modalHistorico');
 
   function carregarVeiculos() {
     const busca = $('#buscaVeiculo').val().trim();
@@ -173,6 +174,7 @@
               '<td>' + esc(v.cor) + '</td>' +
               '<td>' + esc(v.clienteNome) + '</td>' +
               '<td class="text-end text-nowrap">' +
+                '<button class="btn btn-sm btn-outline-secondary btn-historico" title="Histórico de atendimentos"><i class="bi bi-clock-history"></i></button> ' +
                 '<button class="btn btn-sm btn-outline-primary btn-editar" title="Editar"><i class="bi bi-pencil"></i></button> ' +
                 '<button class="btn btn-sm btn-outline-danger btn-excluir" title="Excluir"><i class="bi bi-trash"></i></button>' +
               '</td>' +
@@ -180,6 +182,45 @@
         });
       })
       .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  }
+
+  /**
+   * Histórico de atendimentos do veículo: todas as OS dele, da mais recente para a
+   * mais antiga, com o quanto já foi gasto no carro.
+   */
+  function abrirHistoricoVeiculo(v) {
+    $('#tituloModalHistorico').text('Histórico — ' + v.placa + ' · ' + v.marca + ' ' + v.modelo);
+    const $tb = $('#tabelaHistorico tbody').empty();
+    $('#resumoHistorico').text('Carregando…');
+    modalHistorico.show();
+
+    $.getJSON(API + '/ordens', { veiculoId: v.id })
+      .done(function (lista) {
+        if (!lista.length) {
+          $('#resumoHistorico').text('Este veículo ainda não passou pela oficina.');
+          $tb.append('<tr><td colspan="6" class="text-center text-secondary py-3">Nenhuma ordem de serviço.</td></tr>');
+          return;
+        }
+        let gasto = 0;
+        lista.forEach(function (o) {
+          gasto += Number(o.valorTotal);
+          $tb.append(
+            '<tr>' +
+              '<td class="text-secondary">' + o.id + '</td>' +
+              '<td>' + esc(o.descricaoProblema) + '</td>' +
+              '<td class="text-nowrap">' + fmtData(o.dataAbertura) + '</td>' +
+              '<td class="text-nowrap">' + fmtData(o.dataConclusao) + '</td>' +
+              '<td>' + badgeStatus(o.status) + '</td>' +
+              '<td class="text-end fw-medium">' + fmtMoeda(o.valorTotal) + '</td>' +
+            '</tr>');
+        });
+        $('#resumoHistorico').html(lista.length + ' atendimento(s) · já gasto no veículo: <strong>'
+            + fmtMoeda(gasto) + '</strong>');
+      })
+      .fail(function (xhr) {
+        $('#resumoHistorico').text('');
+        toast(erroDe(xhr), 'danger');
+      });
   }
 
   /** Preenche o <select> de proprietários com os clientes cadastrados. */
@@ -213,6 +254,12 @@
 
   $('#btnNovoVeiculo').on('click', function () { abrirModalVeiculo(null); });
   $('#buscaVeiculo').on('input', debounce(carregarVeiculos, 250));
+
+  $('#tabelaVeiculos').on('click', '.btn-historico', function () {
+    $.getJSON(API + '/veiculos/' + $(this).closest('tr').data('id'))
+      .done(abrirHistoricoVeiculo)
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
 
   $('#tabelaVeiculos').on('click', '.btn-editar', function () {
     $.getJSON(API + '/veiculos/' + $(this).closest('tr').data('id'))

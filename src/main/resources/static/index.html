@@ -79,7 +79,7 @@
               <th>Ano</th>
               <th>Cor</th>
               <th>Proprietário</th>
-              <th class="text-end" style="width:110px">Ações</th>
+              <th class="text-end" style="width:150px">Ações</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -258,6 +258,39 @@
         <button type="submit" class="btn btn-primary" id="btnSalvarVeiculo">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: HISTÓRICO DO VEÍCULO ===================== -->
+<div class="modal fade" id="modalHistorico" tabindex="-1" aria-labelledby="tituloModalHistorico">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloModalHistorico">Histórico do veículo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-secondary small mb-2" id="resumoHistorico"></p>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0" id="tabelaHistorico">
+            <thead class="table-light">
+              <tr>
+                <th style="width:64px">OS</th>
+                <th>Problema relatado</th>
+                <th>Abertura</th>
+                <th>Conclusão</th>
+                <th>Status</th>
+                <th class="text-end">Total</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
   </div>
 </div>
 
