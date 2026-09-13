@@ -79,15 +79,29 @@ SELECT os.id AS os, os.descricao_problema, os.status,
  ORDER BY os.data_abertura DESC;
 
 -- ---------------------------------------------------------------------
---  7. As restrições realmente existem no banco
+--  7. As restrições que o banco realmente tem (PK, FK, UNIQUE, CHECK)
 -- ---------------------------------------------------------------------
 SELECT TABLE_NAME AS tabela, CONSTRAINT_NAME AS restricao, CONSTRAINT_TYPE AS tipo
   FROM information_schema.TABLE_CONSTRAINTS
  WHERE CONSTRAINT_SCHEMA = 'oficina'
  ORDER BY TABLE_NAME, CONSTRAINT_TYPE, CONSTRAINT_NAME;
 
+-- ---------------------------------------------------------------------
+--  8. As chaves estrangeiras e suas políticas de integridade
+--     (é o que comprova o RESTRICT/CASCADE descrito no DER)
+-- ---------------------------------------------------------------------
+SELECT rc.TABLE_NAME AS tabela, rc.CONSTRAINT_NAME AS fk, k.COLUMN_NAME AS coluna,
+       rc.REFERENCED_TABLE_NAME AS referencia,
+       rc.DELETE_RULE AS ao_excluir, rc.UPDATE_RULE AS ao_atualizar
+  FROM information_schema.REFERENTIAL_CONSTRAINTS rc
+  JOIN information_schema.KEY_COLUMN_USAGE k
+    ON k.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+   AND k.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
+ WHERE rc.CONSTRAINT_SCHEMA = 'oficina'
+ ORDER BY rc.TABLE_NAME;
+
 -- =====================================================================
---  8. PROVA DE INTEGRIDADE REFERENCIAL
+--  9. PROVA DE INTEGRIDADE REFERENCIAL
 --
 --  Rode SEPARADAMENTE — este comando FALHA de propósito, e é justamente
 --  o erro que serve de evidência (a FK impede a exclusão):
