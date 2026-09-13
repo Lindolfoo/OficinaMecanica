@@ -127,7 +127,7 @@ Nas próximas vezes bastam os passos 2 e 4.
 
 | Sintoma | Causa provável | Solução |
 |---|---|---|
-| `port is already allocated` ao subir o Docker | Já existe um MySQL instalado usando a porta 3306 | Pare esse MySQL, ou troque `"3306:3306"` por `"3307:3306"` no `docker-compose.yml` e informe a porta nova (veja *Configuração*) |
+| `port is already allocated` ao subir o Docker | Já existe um MySQL instalado usando a porta 3306 | Pare esse MySQL, ou troque `"127.0.0.1:3306:3306"` por `"127.0.0.1:3307:3306"` no `docker-compose.yml` e informe a porta nova (veja *Configuração*) |
 | `ERRO: não foi possível conectar ao MySQL` | Docker fechado, ou o banco ainda estava iniciando | Abra o Docker, aguarde 20 segundos e rode de novo |
 | `release version 21 not supported` | JDK anterior ao 21 | Instale o JDK 21 ou mais novo (por exemplo, o Temurin, em adoptium.net) |
 | `./mvnw: Permission denied` | Script sem permissão de execução | `chmod +x mvnw` |
@@ -136,8 +136,8 @@ Nas próximas vezes bastam os passos 2 e 4.
 ### Configuração
 
 Os padrões estão em `src/main/resources/config.properties`. Qualquer chave pode
-ser sobrescrita por variável de ambiente: `PORT`, `DB_URL`, `DB_USER`,
-`DB_PASSWORD` e `DB_AUTO_SCHEMA`.
+ser sobrescrita por variável de ambiente: `HOST`, `PORT`, `DB_URL`,
+`DB_USER`, `DB_PASSWORD` e `DB_AUTO_SCHEMA`.
 
 Exemplo com a aplicação na porta 8090 e o MySQL na 3307:
 
@@ -152,6 +152,13 @@ Exemplo com a aplicação na porta 8090 e o MySQL na 3307:
 O schema é aplicado automaticamente na subida (`db.autoSchema=true`), então a
 aplicação também roda contra um MySQL já existente: basta informar `DB_URL`,
 `DB_USER` e `DB_PASSWORD`.
+
+### Acesso por outros computadores
+
+Por segurança, a aplicação e o MySQL só aceitam conexões **do próprio
+computador**. Para abrir a aplicação a partir de outro computador da rede, rode
+com `HOST=0.0.0.0` (no PowerShell, `$env:HOST="0.0.0.0"`). Lembre que ela não
+tem login: qualquer pessoa na mesma rede poderá ver e alterar os dados.
 
 ### Recomeçar o banco do zero
 
