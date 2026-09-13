@@ -42,11 +42,15 @@ public class OrdemServicoDao {
               JOIN cliente c ON c.id = v.cliente_id
             """;
 
-    /** READ (lista), com filtros opcionais por status e por texto (placa/cliente/problema). */
-    public List<OrdemServico> listar(String status, String busca) throws SQLException {
+    /**
+     * READ (lista), com filtros opcionais por status, por texto (placa/cliente/problema)
+     * e por veículo — este último é o histórico de atendimentos do carro.
+     */
+    public List<OrdemServico> listar(String status, String busca, Long veiculoId) throws SQLException {
         String sql = SELECT_BASE
                 + " WHERE (? IS NULL OR os.status = ?)"
                 + "   AND (? IS NULL OR v.placa LIKE ? OR c.nome LIKE ? OR os.descricao_problema LIKE ?)"
+                + "   AND (? IS NULL OR os.veiculo_id = ?)"
                 + " ORDER BY os.data_abertura DESC, os.id DESC";
         String filtro = (busca == null || busca.isBlank()) ? null : "%" + busca.trim() + "%";
 
@@ -58,6 +62,8 @@ public class OrdemServicoDao {
             ps.setString(4, filtro);
             ps.setString(5, filtro);
             ps.setString(6, filtro);
+            ps.setObject(7, veiculoId, Types.BIGINT);
+            ps.setObject(8, veiculoId, Types.BIGINT);
             try (ResultSet rs = ps.executeQuery()) {
                 List<OrdemServico> lista = new ArrayList<>();
                 while (rs.next()) {

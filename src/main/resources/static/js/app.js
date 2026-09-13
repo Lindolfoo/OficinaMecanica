@@ -152,6 +152,7 @@
   // ------------------------------------------------------------ VEÍCULOS
 
   const modalVeiculo = new bootstrap.Modal('#modalVeiculo');
+  const modalHistorico = new bootstrap.Modal('#modalHistorico');
 
   function carregarVeiculos() {
     const busca = $('#buscaVeiculo').val().trim();
@@ -173,6 +174,7 @@
               '<td>' + esc(v.cor) + '</td>' +
               '<td>' + esc(v.clienteNome) + '</td>' +
               '<td class="text-end text-nowrap">' +
+                '<button class="btn btn-sm btn-outline-secondary btn-historico" title="Histórico de atendimentos"><i class="bi bi-clock-history"></i></button> ' +
                 '<button class="btn btn-sm btn-outline-primary btn-editar" title="Editar"><i class="bi bi-pencil"></i></button> ' +
                 '<button class="btn btn-sm btn-outline-danger btn-excluir" title="Excluir"><i class="bi bi-trash"></i></button>' +
               '</td>' +
@@ -180,6 +182,45 @@
         });
       })
       .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  }
+
+  /**
+   * Histórico de atendimentos do veículo: todas as OS dele, da mais recente para a
+   * mais antiga, com o quanto já foi gasto no carro.
+   */
+  function abrirHistoricoVeiculo(v) {
+    $('#tituloModalHistorico').text('Histórico — ' + v.placa + ' · ' + v.marca + ' ' + v.modelo);
+    const $tb = $('#tabelaHistorico tbody').empty();
+    $('#resumoHistorico').text('Carregando…');
+    modalHistorico.show();
+
+    $.getJSON(API + '/ordens', { veiculoId: v.id })
+      .done(function (lista) {
+        if (!lista.length) {
+          $('#resumoHistorico').text('Este veículo ainda não passou pela oficina.');
+          $tb.append('<tr><td colspan="6" class="text-center text-secondary py-3">Nenhuma ordem de serviço.</td></tr>');
+          return;
+        }
+        let gasto = 0;
+        lista.forEach(function (o) {
+          gasto += Number(o.valorTotal);
+          $tb.append(
+            '<tr>' +
+              '<td class="text-secondary">' + o.id + '</td>' +
+              '<td>' + esc(o.descricaoProblema) + '</td>' +
+              '<td class="text-nowrap">' + fmtData(o.dataAbertura) + '</td>' +
+              '<td class="text-nowrap">' + fmtData(o.dataConclusao) + '</td>' +
+              '<td>' + badgeStatus(o.status) + '</td>' +
+              '<td class="text-end fw-medium">' + fmtMoeda(o.valorTotal) + '</td>' +
+            '</tr>');
+        });
+        $('#resumoHistorico').html(lista.length + ' atendimento(s) · já gasto no veículo: <strong>'
+            + fmtMoeda(gasto) + '</strong>');
+      })
+      .fail(function (xhr) {
+        $('#resumoHistorico').text('');
+        toast(erroDe(xhr), 'danger');
+      });
   }
 
   /** Preenche o <select> de proprietários com os clientes cadastrados. */
@@ -213,6 +254,12 @@
 
   $('#btnNovoVeiculo').on('click', function () { abrirModalVeiculo(null); });
   $('#buscaVeiculo').on('input', debounce(carregarVeiculos, 250));
+
+  $('#tabelaVeiculos').on('click', '.btn-historico', function () {
+    $.getJSON(API + '/veiculos/' + $(this).closest('tr').data('id'))
+      .done(abrirHistoricoVeiculo)
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
 
   $('#tabelaVeiculos').on('click', '.btn-editar', function () {
     $.getJSON(API + '/veiculos/' + $(this).closest('tr').data('id'))
@@ -360,6 +407,62 @@
     return '<span class="badge ' + r[1] + '">' + r[0] + '</span>';
   }
 
+  /**
+   * Monta a via impressa da OS em #impressaoOs e chama a impressão do navegador.
+   * Não há biblioteca de PDF no projeto: quem gera o arquivo é o próprio
+   * navegador, pela opção "Salvar como PDF" da caixa de impressão.
+   */
+  function imprimirOrdem(id) {
+    $.getJSON(API + '/ordens/' + id)
+      .done(function (o) {
+        let linhas = '';
+        let total = 0;
+        o.itens.forEach(function (it) {
+          const subtotal = Number(it.valorUnitario) * it.quantidade;
+          total += subtotal;
+          linhas +=
+            '<tr>' +
+              '<td>' + esc(it.servicoDescricao) + '</td>' +
+              '<td class="c">' + (it.servicoTipo === 'PECA' ? 'Peça' : 'Mão de obra') + '</td>' +
+              '<td class="c">' + it.quantidade + '</td>' +
+              '<td class="d">' + fmtMoeda(it.valorUnitario) + '</td>' +
+              '<td class="d">' + fmtMoeda(subtotal) + '</td>' +
+            '</tr>';
+        });
+        if (!o.itens.length) {
+          linhas = '<tr><td colspan="5" class="c">Nenhum item lançado.</td></tr>';
+        }
+
+        $('#impressaoOs').html(
+          '<div class="os-topo">' +
+            '<h1>Oficina Mecânica</h1>' +
+            '<div class="d"><strong>ORDEM DE SERVIÇO Nº ' + o.id + '</strong><br>' +
+              (ROTULO_STATUS[o.status] || [o.status])[0] + '</div>' +
+          '</div>' +
+          '<div class="os-dados">' +
+            '<div><h2>Cliente</h2>' + esc(o.clienteNome) + '</div>' +
+            '<div><h2>Veículo</h2>' + esc(o.veiculoPlaca) + ' — ' + esc(o.veiculoDescricao) +
+              (o.kmAtual ? '<br>' + o.kmAtual + ' km' : '') + '</div>' +
+            '<div><h2>Datas</h2>Abertura: ' + fmtData(o.dataAbertura) +
+              '<br>Conclusão: ' + fmtData(o.dataConclusao) + '</div>' +
+          '</div>' +
+          '<h2>Problema relatado</h2><p>' + esc(o.descricaoProblema) + '</p>' +
+          '<h2>Serviços e peças</h2>' +
+          '<table><thead><tr><th>Descrição</th><th class="c">Tipo</th><th class="c">Qtd.</th>' +
+            '<th class="d">Valor unit.</th><th class="d">Subtotal</th></tr></thead>' +
+            '<tbody>' + linhas + '</tbody></table>' +
+          '<p class="os-total">Total: ' + fmtMoeda(total) + '</p>' +
+          (o.observacoes ? '<h2>Observações</h2><p>' + esc(o.observacoes) + '</p>' : '') +
+          '<div class="assinaturas">' +
+            '<div>Responsável pela oficina</div>' +
+            '<div>' + esc(o.clienteNome) + '</div>' +
+          '</div>');
+
+        window.print();
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  }
+
   function carregarResumo() {
     $.getJSON(API + '/ordens/resumo').done(function (lista) {
       const $r = $('#resumoOs').empty();
@@ -404,6 +507,7 @@
               '<td>' + badgeStatus(o.status) + '</td>' +
               '<td class="text-end fw-medium">' + fmtMoeda(o.valorTotal) + '</td>' +
               '<td class="text-end text-nowrap">' +
+                '<button class="btn btn-sm btn-outline-secondary btn-imprimir" title="Imprimir"><i class="bi bi-printer"></i></button> ' +
                 '<button class="btn btn-sm btn-outline-primary btn-editar" title="Abrir"><i class="bi bi-pencil"></i></button> ' +
                 '<button class="btn btn-sm btn-outline-danger btn-excluir" title="Excluir"><i class="bi bi-trash"></i></button>' +
               '</td>' +
@@ -479,6 +583,10 @@
   $('#btnNovaOrdem').on('click', function () { abrirModalOrdem(null); });
   $('#buscaOrdem').on('input', debounce(carregarOrdens, 250));
   $('#filtroStatus').on('change', carregarOrdens);
+
+  $('#tabelaOrdens').on('click', '.btn-imprimir', function () {
+    imprimirOrdem($(this).closest('tr').data('id'));
+  });
 
   $('#tabelaOrdens').on('click', '.btn-editar', function () {
     $.getJSON(API + '/ordens/' + $(this).closest('tr').data('id'))
