@@ -41,7 +41,7 @@ public final class App {
         }
 
         // 2) Rotas
-        HttpServer server = HttpServer.create(new InetSocketAddress(Config.port()), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress(Config.host(), Config.port()), 0);
         server.createContext("/api/clientes", new ClienteHandler());
         server.createContext("/api/veiculos", new VeiculoHandler());
         server.createContext("/api/servicos", new ServicoHandler());
@@ -53,6 +53,10 @@ public final class App {
         server.start();
 
         System.out.println("Servidor no ar: http://localhost:" + Config.port());
+        if (!Config.host().startsWith("127.")) {
+            System.out.println("ATENÇÃO: aceitando conexões de outros computadores (" + Config.host()
+                    + "). A aplicação não tem login.");
+        }
         System.out.println("Pressione Ctrl+C para encerrar.");
     }
 }
