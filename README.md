@@ -66,7 +66,59 @@ sobrescrita por variável de ambiente (`PORT`, `DB_URL`, `DB_USER`, `DB_PASSWORD
 
 ## Modelo de dados
 
-    cliente 1 ──< veiculo 1 ──< ordem_servico >── item_os ──< servico
+```mermaid
+erDiagram
+    CLIENTE ||--o{ VEICULO : "possui"
+    VEICULO ||--o{ ORDEM_SERVICO : "é atendido em"
+    ORDEM_SERVICO ||--o{ ITEM_OS : "é composta por"
+    SERVICO ||--o{ ITEM_OS : "é lançado em"
+
+    CLIENTE {
+        INT id PK "AUTO_INCREMENT"
+        VARCHAR_100 nome "NOT NULL"
+        CHAR_11 cpf UK "NOT NULL, somente dígitos"
+        VARCHAR_20 telefone "NULL"
+        VARCHAR_120 email "NULL"
+        DATETIME criado_em "DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    VEICULO {
+        INT id PK "AUTO_INCREMENT"
+        INT cliente_id FK "NOT NULL"
+        VARCHAR_8 placa UK "NOT NULL"
+        VARCHAR_50 marca "NOT NULL"
+        VARCHAR_60 modelo "NOT NULL"
+        SMALLINT ano "CHECK: entre 1950 e 2100"
+        VARCHAR_30 cor "NULL"
+    }
+
+    SERVICO {
+        INT id PK "AUTO_INCREMENT"
+        VARCHAR_120 descricao UK "NOT NULL"
+        ENUM tipo "MAO_DE_OBRA / PECA"
+        DECIMAL_10_2 preco "CHECK: não negativo"
+        TINYINT ativo "DEFAULT 1"
+    }
+
+    ORDEM_SERVICO {
+        INT id PK "AUTO_INCREMENT"
+        INT veiculo_id FK "NOT NULL"
+        ENUM status "ABERTA / EM_ANDAMENTO / CONCLUIDA / CANCELADA"
+        VARCHAR_500 descricao_problema "NOT NULL"
+        INT km_atual "NULL"
+        DATETIME data_abertura "DEFAULT CURRENT_TIMESTAMP"
+        DATETIME data_conclusao "NULL, CHECK: não anterior à abertura"
+        VARCHAR_500 observacoes "NULL"
+    }
+
+    ITEM_OS {
+        INT id PK "AUTO_INCREMENT"
+        INT ordem_servico_id FK "NOT NULL"
+        INT servico_id FK "NOT NULL"
+        INT quantidade "CHECK: maior que zero"
+        DECIMAL_10_2 valor_unitario "CHECK: não negativo"
+    }
+```
 
 | Tabela | Papel | Regra de integridade |
 |---|---|---|
@@ -76,7 +128,9 @@ sobrescrita por variável de ambiente (`PORT`, `DB_URL`, `DB_USER`, `DB_PASSWORD
 | `ordem_servico` | Cabeçalho da OS | Total **não** é armazenado: é `SUM` dos itens |
 | `item_os` | Associativa N:N entre OS e serviço | `CASCADE` na OS, `RESTRICT` no serviço |
 
-O DDL comentado está em [`sql/01_schema.sql`](sql/01_schema.sql).
+DER completo, cardinalidades, dicionário de dados e decisões de normalização
+em [`docs/DER.md`](docs/DER.md). O DDL comentado está em
+[`sql/01_schema.sql`](sql/01_schema.sql).
 
 ### O trecho que mais importa
 
