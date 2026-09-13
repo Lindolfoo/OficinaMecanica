@@ -33,6 +33,14 @@ public final class Config {
         return PROPS.getProperty(chave, padrao);
     }
 
+    /**
+     * Endereço em que o servidor aceita conexões. 127.0.0.1 atende só este computador;
+     * 0.0.0.0 libera a rede, o que só é seguro quando a aplicação tiver login.
+     */
+    public static String host() {
+        return get("server.host", "HOST", "127.0.0.1");
+    }
+
     public static int port() {
         return Integer.parseInt(get("server.port", "PORT", "8080"));
     }
