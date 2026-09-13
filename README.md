@@ -267,6 +267,8 @@ Evidências colhidas no MySQL Workbench, com as consultas de
 | As 19 restrições que o banco tem | `RESTRICT`/`CASCADE` de cada FK |
 | ![FK bloqueia](docs/prints/18-banco-fk-bloqueia-exclusao.png) | ![Clientes gravados](docs/prints/19-banco-clientes-gravados.png) |
 | `ERROR 1451` — a FK recusa a exclusão | Os dados persistidos na tabela |
+| ![Confirmação da exclusão](docs/prints/20-crud-exclusao-confirmacao.png) | ![Cliente excluído no banco](docs/prints/21-banco-cliente-excluido.png) |
+| Exclusão pela tela de um cliente sem veículo | Depois de confirmar, o registro some do banco |
 
 ## Licença
 
