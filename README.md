@@ -269,6 +269,10 @@ Evidências colhidas no MySQL Workbench, com as consultas de
 | `ERROR 1451` — a FK recusa a exclusão | Os dados persistidos na tabela |
 | ![Confirmação da exclusão](docs/prints/20-crud-exclusao-confirmacao.png) | ![Cliente excluído no banco](docs/prints/21-banco-cliente-excluido.png) |
 | Exclusão pela tela de um cliente sem veículo | Depois de confirmar, o registro some do banco |
+| ![Edição: antes](docs/prints/22-crud-edicao-antes.png) | ![Edição: alterando](docs/prints/23-crud-edicao-alterando.png) |
+| Edição do cliente com o telefone original | Telefone novo digitado |
+| ![Edição salva](docs/prints/24-crud-edicao-salva.png) | |
+| A lista já com o telefone alterado | |
 
 ## Licença
 
