@@ -1,9 +1,27 @@
 # Oficina Mecânica — Sistema de Ordens de Serviço
 
+**Universidade Paulista (UNIP)** — Trabalho NP1 da disciplina de **Banco de Dados**
+
+| | |
+|---|---|
+| **Curso** | Análise e Desenvolvimento de Sistemas |
+| **Turma** | DS4P-17 |
+
+### Integrantes
+
+| Nome completo | RA |
+|---|---|
+| Eduardo Matheus do Amaral Alves | H753BJ9 |
+| Henrique Rodrigues Lindolfo | H6250F3 |
+| Matheus Fernandes Pereira | H75IHD9 |
+| Matheus Sousa Ribeiro | R850862 |
+| Nicollas Abreu Svidevska de Camargo | R200965 |
+| Vitor Roma Cunha Santos | R8504C4 |
+
+---
+
 Sistema web de gestão para uma oficina mecânica: cadastro de clientes e veículos,
 catálogo de serviços, e abertura de ordens de serviço com itens e total calculado.
-
-Trabalho da disciplina de Banco de Dados (NP1) — UNIP.
 
 ![Lista de ordens de serviço](docs/prints/07-ordens-lista.png)
 
