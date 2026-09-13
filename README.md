@@ -25,6 +25,44 @@ catálogo de serviços, e abertura de ordens de serviço com itens e total calcu
 
 ![Lista de ordens de serviço](docs/prints/07-ordens-lista.png)
 
+## O domínio e as regras de negócio
+
+O sistema atende o fluxo de uma oficina mecânica de bairro: o cliente traz o
+veículo e relata um problema; a oficina abre uma **Ordem de Serviço (OS)**, lança
+nela os serviços executados e as peças aplicadas, acompanha o status até a
+conclusão e fecha com o valor total.
+
+### Escopo funcional
+
+| Módulo | O que faz |
+|---|---|
+| **Clientes** | Cadastro, edição, exclusão e busca por nome ou CPF |
+| **Veículos** | Cadastro vinculado ao proprietário; busca por placa, marca ou modelo |
+| **Serviços** | Catálogo de mão de obra e peças, com preço de tabela e ativação/inativação |
+| **Ordens de Serviço** | Abertura com itens, mudança de status, filtro por status e resumo de faturamento |
+
+### Regras
+
+| # | Regra | Onde é garantida |
+|---|---|---|
+| RN01 | O cliente é identificado pelo CPF, que não se repete | `UNIQUE (cpf)` + dígito verificador em `Validators.cpfValido` |
+| RN02 | Um cliente pode ter vários veículos; todo veículo tem exatamente um dono | FK `veiculo.cliente_id` (1:N) |
+| RN03 | Duas placas iguais não convivem no sistema | `UNIQUE (placa)` |
+| RN04 | Cliente com veículo cadastrado não pode ser excluído | `ON DELETE RESTRICT` |
+| RN05 | Toda OS é aberta para um veículo já cadastrado | FK `ordem_servico.veiculo_id` |
+| RN06 | Veículo com OS registrada não pode ser excluído — o histórico é preservado | `ON DELETE RESTRICT` |
+| RN07 | A OS percorre ABERTA → EM_ANDAMENTO → CONCLUIDA, podendo ser CANCELADA | `ENUM` em `ordem_servico.status` |
+| RN08 | A conclusão nunca é anterior à abertura | `CHECK (data_conclusao >= data_abertura)` |
+| RN09 | Ao concluir uma OS a data de conclusão é preenchida; ao reabrir, volta a nulo | `OrdemServicoDao.atualizar` |
+| RN10 | Uma OS é composta por itens: serviços e/ou peças, cada um com quantidade | Associativa `item_os` (N:N) |
+| RN11 | O mesmo serviço entra uma única vez por OS — repetir é aumentar a quantidade | `UNIQUE (ordem_servico_id, servico_id)` |
+| RN12 | Quantidade sempre positiva e valor nunca negativo | `CHECK (quantidade > 0)`, `CHECK (valor_unitario >= 0)` |
+| RN13 | O preço cobrado é congelado no lançamento: reajuste de tabela não altera OS antiga | `item_os.valor_unitario`, copiado de `servico.preco` |
+| RN14 | O total da OS nunca é armazenado — é sempre calculado a partir dos itens | `SUM(quantidade * valor_unitario)` |
+| RN15 | Excluir uma OS apaga seus itens, mas nunca o serviço do catálogo | `CASCADE` em `item_os`, `RESTRICT` em `servico` |
+| RN16 | Serviço inativado some das OS novas, mas continua no histórico | `servico.ativo` + filtro `?ativos=true` |
+| RN17 | A gravação de uma OS com seus itens é tudo ou nada | Transação explícita em `OrdemServicoDao.inserirComItens` |
+
 ## Por que sem framework
 
 O objetivo da disciplina é **modelagem relacional e SQL**, não produtividade.
