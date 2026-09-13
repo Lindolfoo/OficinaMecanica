@@ -66,3 +66,103 @@ body {
   outline: 3px solid var(--oficina-laranja);
   outline-offset: 2px;
 }
+
+/* ---------------------------------------------------------------- impressão
+   A via da OS é montada em #impressaoOs pelo app.js. Na tela fica oculta; no
+   papel, é a única coisa que sai. O PDF quem gera é o próprio navegador
+   ("Salvar como PDF" na caixa de impressão) — sem biblioteca nenhuma. */
+#impressaoOs {
+  display: none;
+}
+
+#impressaoOs .os-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 2px solid #000;
+  padding-bottom: .5rem;
+  margin-bottom: 1rem;
+}
+
+#impressaoOs h1 {
+  font-size: 15pt;
+  margin: 0;
+}
+
+#impressaoOs h2 {
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 1px solid #999;
+  padding-bottom: .1rem;
+  margin: 0 0 .35rem;
+}
+
+#impressaoOs .os-dados {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+#impressaoOs .os-dados > div {
+  flex: 1;
+}
+
+#impressaoOs table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: .75rem;
+}
+
+#impressaoOs th,
+#impressaoOs td {
+  border: 1px solid #999;
+  padding: .3rem .5rem;
+  text-align: left;
+}
+
+#impressaoOs th {
+  background: #eee;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+#impressaoOs .d { text-align: right; }
+#impressaoOs .c { text-align: center; }
+
+#impressaoOs .os-total {
+  text-align: right;
+  font-size: 13pt;
+  font-weight: 700;
+}
+
+#impressaoOs .assinaturas {
+  display: flex;
+  gap: 3rem;
+  margin-top: 3.5rem;
+}
+
+#impressaoOs .assinaturas div {
+  flex: 1;
+  border-top: 1px solid #000;
+  padding-top: .25rem;
+  text-align: center;
+  font-size: 9pt;
+}
+
+@media print {
+  body > *:not(#impressaoOs) {
+    display: none !important;
+  }
+
+  #impressaoOs {
+    display: block;
+    color: #000;
+    font-size: 11pt;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}
