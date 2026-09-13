@@ -37,9 +37,9 @@ conclusão e fecha com o valor total.
 | Módulo | O que faz |
 |---|---|
 | **Clientes** | Cadastro, edição, exclusão e busca por nome ou CPF |
-| **Veículos** | Cadastro vinculado ao proprietário; busca por placa, marca ou modelo |
+| **Veículos** | Cadastro vinculado ao proprietário; busca por placa, marca ou modelo; histórico de atendimentos |
 | **Serviços** | Catálogo de mão de obra e peças, com preço de tabela e ativação/inativação |
-| **Ordens de Serviço** | Abertura com itens, mudança de status, filtro por status e resumo de faturamento |
+| **Ordens de Serviço** | Abertura com itens, mudança de status, filtro por status, resumo de faturamento e impressão da via em A4 |
 
 ### Regras
 
@@ -196,7 +196,7 @@ Respostas em JSON; entrada como formulário (`application/x-www-form-urlencoded`
 | `DELETE` | `/api/clientes/{id}` | exclui |
 | `GET` | `/api/veiculos` | lista — `?busca=`, `?clienteId=` |
 | `GET` | `/api/servicos` | lista — `?busca=`, `?ativos=true` |
-| `GET` | `/api/ordens` | lista — `?status=ABERTA`, `?busca=` |
+| `GET` | `/api/ordens` | lista — `?status=ABERTA`, `?busca=`, `?veiculoId=` (histórico do veículo) |
 | `GET` | `/api/ordens/resumo` | quantidade e total por status (`GROUP BY`) |
 | `GET` | `/api/ordens/{id}` | uma OS com seus itens |
 | `POST` | `/api/ordens` | cria a OS e os itens **em uma transação** |
@@ -250,7 +250,8 @@ São três camadas, de propósito:
 | ![Filtro por status](docs/prints/10-filtro-status.png) | ![Integridade](docs/prints/11-integridade-fk.png) |
 | Filtro por status | FK impedindo exclusão indevida |
 
-Mais prints em [`docs/prints/`](docs/prints/).
+Mais prints em [`docs/prints/`](docs/prints/). As consultas usadas para comprovar
+a persistência dos dados no banco estão em [`docs/evidencias.sql`](docs/evidencias.sql).
 
 ## Licença
 
