@@ -81,26 +81,88 @@ Não há Spring, nem Hibernate, nem JPA: todo o SQL é escrito à mão em
 
 ## Como executar
 
-Pré-requisitos: **JDK 25** e **Docker** (ou um MySQL 8 já instalado).
+### Pré-requisitos
 
-    # 1. sobe o MySQL e cria schema + dados de exemplo
-    docker compose up -d
+| Programa | Versão | Para quê |
+|---|---|---|
+| **JDK** | 21 ou mais novo | Compilar e rodar a aplicação |
+| **Docker** (Docker Desktop no Windows e macOS) | recente | Subir o MySQL já configurado |
+| **Git** | qualquer | Clonar o repositório |
 
-    # 2. gera o jar executável e roda
-    mvn package
+**Não é preciso instalar o Maven**: o repositório traz o Maven Wrapper
+(`mvnw` e `mvnw.cmd`), que baixa a versão certa sozinho na primeira execução.
+
+Confira no terminal:
+
+    java -version            # precisa mostrar 21 ou mais
+    docker compose version
+
+### Passo a passo
+
+1. Clone o repositório e entre na pasta:
+
+       git clone https://github.com/Lindolfoo/OficinaMecanica.git
+       cd OficinaMecanica
+
+2. Com o Docker aberto, suba o MySQL. Na primeira vez ele cria o schema e
+   carrega os dados de exemplo; aguarde uns 20 segundos:
+
+       docker compose up -d
+
+3. Gere o jar executável:
+
+       ./mvnw package          # Linux e macOS
+       mvnw.cmd package        # Windows
+
+4. Rode a aplicação:
+
+       java -jar target/oficina.jar
+
+5. Quando aparecer `Servidor no ar: http://localhost:8080`, abra
+   <http://localhost:8080>. Para encerrar, use **Ctrl+C**.
+
+Nas próximas vezes bastam os passos 2 e 4.
+
+### Se der erro
+
+| Sintoma | Causa provável | Solução |
+|---|---|---|
+| `port is already allocated` ao subir o Docker | Já existe um MySQL instalado usando a porta 3306 | Pare esse MySQL, ou troque `"3306:3306"` por `"3307:3306"` no `docker-compose.yml` e informe a porta nova (veja *Configuração*) |
+| `ERRO: não foi possível conectar ao MySQL` | Docker fechado, ou o banco ainda estava iniciando | Abra o Docker, aguarde 20 segundos e rode de novo |
+| `release version 21 not supported` | JDK anterior ao 21 | Instale o JDK 21 ou mais novo (por exemplo, o Temurin, em adoptium.net) |
+| `./mvnw: Permission denied` | Script sem permissão de execução | `chmod +x mvnw` |
+| Porta 8080 ocupada | Outro programa usando a porta | Rode em outra porta com `PORT` (veja *Configuração*) |
+
+### Configuração
+
+Os padrões estão em `src/main/resources/config.properties`. Qualquer chave pode
+ser sobrescrita por variável de ambiente: `PORT`, `DB_URL`, `DB_USER`,
+`DB_PASSWORD` e `DB_AUTO_SCHEMA`.
+
+Exemplo com a aplicação na porta 8090 e o MySQL na 3307:
+
+    # Linux e macOS
+    PORT=8090 DB_URL="jdbc:mysql://localhost:3307/oficina?allowPublicKeyRetrieval=true" java -jar target/oficina.jar
+
+    # Windows (PowerShell)
+    $env:PORT="8090"
+    $env:DB_URL="jdbc:mysql://localhost:3307/oficina?allowPublicKeyRetrieval=true"
     java -jar target/oficina.jar
 
-Abra <http://localhost:8080>.
-
 O schema é aplicado automaticamente na subida (`db.autoSchema=true`), então a
-aplicação também roda contra um MySQL já existente — basta apontar as credenciais:
+aplicação também roda contra um MySQL já existente: basta informar `DB_URL`,
+`DB_USER` e `DB_PASSWORD`.
 
-    DB_URL="jdbc:mysql://localhost:3306/oficina" DB_USER=root DB_PASSWORD=senha \
-      java -jar target/oficina.jar
+### Recomeçar o banco do zero
 
-Padrões em `src/main/resources/config.properties`; qualquer chave pode ser
-sobrescrita por variável de ambiente (`PORT`, `DB_URL`, `DB_USER`, `DB_PASSWORD`,
-`DB_AUTO_SCHEMA`).
+Apaga todos os dados e recarrega os de exemplo:
+
+    docker compose down -v
+    docker compose up -d
+
+### Acessar o banco pelo MySQL Workbench
+
+Host `127.0.0.1`, porta `3306`, usuário `root`, senha `root`, schema `oficina`.
 
 ## Modelo de dados
 
