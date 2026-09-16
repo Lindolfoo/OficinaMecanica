@@ -395,9 +395,13 @@ Host `127.0.0.1`, porta `3306`, usuário `root`, senha `root`, schema `oficina`.
 | | |
 |---|---|
 | ![Tela de login](docs/prints/00-login.png) | ![Dashboard](docs/prints/25-dashboard.png) |
-| Tela de login — acesso por e-mail e senha | Dashboard com indicadores e gráficos |
+| Tela de login — acesso por e-mail e senha | Dashboard: indicadores, distribuição por situação e movimento por mês |
 | ![Clientes](docs/prints/01-clientes-lista.png) | ![Ordens de serviço](docs/prints/07-ordens-lista.png) |
-| Lista de clientes com busca | Ordens de serviço com status e total |
+| Lista de clientes com busca | Ordens de serviço com situação e total calculado |
+| ![Veículos](docs/prints/05-veiculos-lista.png) | ![Serviços](docs/prints/06-servicos-catalogo.png) |
+| Veículos com o proprietário (o 1:N na tela) | Catálogo com preço e itens ativos/inativos |
+| ![Usuários](docs/prints/26-usuarios.png) | |
+| Administração de contas — só o perfil ADMIN chega aqui | |
 
 ### CRUD em funcionamento
 
