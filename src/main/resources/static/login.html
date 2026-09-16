@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar · Oficina Mecânica</title>
+  <link href="vendor/css/bootstrap.min.css" rel="stylesheet">
+  <link href="vendor/css/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body class="tela-login">
+
+<main class="login">
+
+  <!-- metade da esquerda: o mascote -->
+  <section class="login-foto">
+    <img src="img/beagle.png" alt="Beagle sentado, mascote da oficina">
+  </section>
+
+  <!-- metade da direita: o formulário -->
+  <section class="login-painel">
+    <form id="formLogin" class="login-form" novalidate>
+
+      <h1 class="login-titulo">Bem-Vindo ao Sistema</h1>
+      <p class="login-subtitulo">Sistema de Gerenciamento de Oficina Mecânica</p>
+
+      <div class="alert alert-danger d-flex align-items-center gap-2 text-start d-none" id="erroLogin" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span id="erroLoginTexto"></span>
+      </div>
+
+      <label for="email" class="visually-hidden">E-mail</label>
+      <input type="email" id="email" class="form-control login-campo"
+             placeholder="Digite o seu e-mail" required autocomplete="username" autofocus>
+
+      <label for="senha" class="visually-hidden">Senha</label>
+      <input type="password" id="senha" class="form-control login-campo"
+             placeholder="Sua senha" required autocomplete="current-password">
+
+      <p class="login-aviso d-none" id="avisoCapsLock">
+        <i class="bi bi-capslock"></i> Caps Lock está ligado.
+      </p>
+
+      <div class="form-check login-lembrar">
+        <input class="form-check-input" type="checkbox" id="manterConectado">
+        <label class="form-check-label" for="manterConectado">Manter a senha</label>
+      </div>
+
+      <button type="submit" class="btn btn-primary login-entrar" id="btnEntrar">
+        <span id="textoEntrar">Entrar</span>
+        <span class="spinner-border spinner-border-sm ms-2 d-none" id="carregandoEntrar" aria-hidden="true"></span>
+      </button>
+
+      <button type="button" class="login-esqueci" id="btnEsqueci">Esqueceu a sua senha?</button>
+
+      <p class="login-dica d-none" id="dicaSenha">
+        Este sistema não envia e-mail de recuperação. Peça a um usuário
+        <strong>ADMIN</strong> para redefinir a sua senha em
+        <em>Administração &rsaquo; Usuários</em>.
+      </p>
+
+    </form>
+  </section>
+
+</main>
+
+<script src="vendor/js/jquery.min.js"></script>
+<script src="js/login.js"></script>
+</body>
+</html>

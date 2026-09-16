@@ -59,9 +59,28 @@ erDiagram
         INT quantidade "CHECK: maior que zero"
         DECIMAL_10_2 valor_unitario "CHECK: não negativo"
     }
+
+    USUARIO {
+        INT id PK "AUTO_INCREMENT"
+        VARCHAR_100 nome "NOT NULL"
+        VARCHAR_120 email UK "NOT NULL, é o login"
+        VARCHAR_255 senha_hash "NOT NULL, PBKDF2 — nunca a senha"
+        ENUM perfil "ADMIN / ATENDENTE"
+        TINYINT ativo "DEFAULT 1"
+        TINYINT tentativas_falhas "DEFAULT 0"
+        DATETIME bloqueado_ate "NULL"
+        DATETIME ultimo_acesso "NULL"
+        DATETIME criado_em "DEFAULT CURRENT_TIMESTAMP"
+    }
 ```
 
 > Notação pé-de-galinha: `||` = exatamente um · `o{` = zero ou muitos.
+
+`USUARIO` aparece solta no diagrama de propósito: ela não faz parte do domínio
+da oficina (cliente, veículo, serviço, OS), e sim do **controle de acesso** ao
+sistema. Não há FK ligando usuário a ordem de serviço porque a OS é um fato do
+negócio — ela continua válida mesmo que o funcionário que a digitou seja
+excluído do sistema depois.
 
 Em texto, para quem visualizar o arquivo fora do GitHub:
 
@@ -162,6 +181,42 @@ Entidade associativa N:N entre `ordem_servico` e `servico`.
 
 `CONSTRAINT uq_item_os UNIQUE (ordem_servico_id, servico_id)` — o mesmo serviço
 entra uma única vez por OS; repetir significa aumentar a quantidade.
+
+### usuario
+Quem pode entrar no sistema. Fora do domínio da oficina, sem FK (ver a nota
+abaixo do diagrama).
+
+| Coluna | Tipo | Nulo | Restrição |
+|---|---|---|---|
+| `id` | `INT UNSIGNED` | não | PK, `AUTO_INCREMENT` |
+| `nome` | `VARCHAR(100)` | não | `CHECK (CHAR_LENGTH(nome) >= 2)` |
+| `email` | `VARCHAR(120)` | não | `UNIQUE` — é o login · `CHECK (email LIKE '_%@_%._%')` |
+| `senha_hash` | `VARCHAR(255)` | não | `CHECK (senha_hash LIKE 'pbkdf2\_sha256$%')` — o banco recusa senha em texto puro |
+| `perfil` | `ENUM('ADMIN','ATENDENTE')` | não | `DEFAULT 'ATENDENTE'` |
+| `ativo` | `TINYINT(1)` | não | `DEFAULT 1` — inativo não consegue entrar |
+| `tentativas_falhas` | `TINYINT UNSIGNED` | não | `DEFAULT 0` — contador de senhas erradas |
+| `bloqueado_ate` | `DATETIME` | sim | Bloqueio temporário por força bruta |
+| `ultimo_acesso` | `DATETIME` | sim | Carimbado a cada login aceito |
+| `criado_em` | `DATETIME` | não | `DEFAULT CURRENT_TIMESTAMP` |
+
+**A senha nunca é armazenada.** A coluna guarda o resultado de um PBKDF2-SHA256
+com sal aleatório, no formato `pbkdf2_sha256$iteracoes$sal$hash`. O `CHECK` acima
+é a última linha de defesa: mesmo um `INSERT` feito direto no MySQL, por fora da
+aplicação, é recusado se tentar gravar a senha em texto puro.
+
+## Resumo das restrições
+
+O schema tem **6 tabelas** e **24 restrições**:
+
+| Tipo | Quantidade |
+|---|---|
+| `CHECK` | 9 |
+| `PRIMARY KEY` | 6 |
+| `UNIQUE` | 5 |
+| `FOREIGN KEY` | 4 |
+
+Os números podem ser conferidos no próprio banco com a consulta 7b de
+[`evidencias.sql`](evidencias.sql).
 
 ## Decisões de normalização
 
