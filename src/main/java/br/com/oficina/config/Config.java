@@ -61,4 +61,34 @@ public final class Config {
     public static boolean dbAutoSchema() {
         return Boolean.parseBoolean(get("db.autoSchema", "DB_AUTO_SCHEMA", "true"));
     }
+
+    // ------------------------------------------------------------------ autenticação
+
+    /** Minutos de inatividade até a sessão cair sozinha. */
+    public static int sessaoMinutos() {
+        return Integer.parseInt(get("auth.sessaoMinutos", "SESSAO_MINUTOS", "30"));
+    }
+
+    /**
+     * Marca o cookie de sessão como Secure (só trafega em HTTPS). Fica desligado
+     * por padrão porque em sala a aplicação roda em http://localhost — com Secure
+     * ligado, o navegador simplesmente não guardaria o cookie. Publicou em HTTPS,
+     * ligue.
+     */
+    public static boolean cookieSeguro() {
+        return Boolean.parseBoolean(get("auth.cookieSeguro", "COOKIE_SEGURO", "false"));
+    }
+
+    /** Dados do administrador criado automaticamente na primeira execução. */
+    public static String adminNome() {
+        return get("auth.adminNome", "ADMIN_NOME", "Administrador");
+    }
+
+    public static String adminEmail() {
+        return get("auth.adminEmail", "ADMIN_EMAIL", "admin@oficina.local");
+    }
+
+    public static String adminSenha() {
+        return get("auth.adminSenha", "ADMIN_SENHA", "oficina2026");
+    }
 }
