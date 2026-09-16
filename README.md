@@ -408,11 +408,11 @@ Host `127.0.0.1`, porta `3306`, usuário `root`, senha `root`, schema `oficina`.
 | | |
 |---|---|
 | ![Cadastro](docs/prints/02-cliente-cadastro.png) | ![Cliente criado](docs/prints/03-cliente-criado.png) |
-| **CREATE** — formulário de cadastro | O registro aparece na lista |
+| **CREATE** — formulário preenchido | O cliente #7 aparece na lista, que passa a 5 registros |
 | ![Edição](docs/prints/23-crud-edicao-alterando.png) | ![Edição salva](docs/prints/24-crud-edicao-salva.png) |
-| **UPDATE** — alterando o telefone | A lista já com o dado alterado |
-| ![Confirmação](docs/prints/20-crud-exclusao-confirmacao.png) | ![Validação de CPF](docs/prints/04-validacao-cpf.png) |
-| **DELETE** — confirmação antes de excluir | **READ/validação** — CPF rejeitado pelo dígito verificador |
+| **UPDATE** — alterando o telefone do cliente #7 | A lista já com o telefone novo |
+| ![Exclusão](docs/prints/20-crud-exclusao-confirmacao.png) | ![Validação de CPF](docs/prints/04-validacao-cpf.png) |
+| **DELETE** — o registro sumiu da lista, que volta a 4 | **Validação** — CPF rejeitado pelo dígito verificador |
 | ![OS com itens](docs/prints/08-os-com-itens.png) | ![Filtro por status](docs/prints/10-filtro-status.png) |
 | OS com itens e total calculado | Filtro por status |
 
@@ -428,7 +428,7 @@ e podem ser reproduzidas por quem avalia, com um comando só (veja
 | ![Estrutura](docs/prints/12-banco-estrutura.png) | ![Cliente e veículo](docs/prints/13-banco-cliente-veiculo.png) |
 | As 6 tabelas em InnoDB/utf8mb4 e a contagem real de linhas | O 1:N entre cliente e veículo |
 | ![Clientes gravados](docs/prints/19-banco-clientes-gravados.png) | ![Cliente excluído](docs/prints/21-banco-cliente-excluido.png) |
-| Os dados criados pela tela, persistidos na tabela | Depois do DELETE, o registro some do banco |
+| O cliente #7, criado pela tela, gravado no banco — repare no `criado_em` diferente dos registros de carga | Depois do DELETE, o #7 não está mais na tabela |
 | ![Total calculado](docs/prints/14-banco-os-total-calculado.png) | ![Itens da OS](docs/prints/15-banco-itens-da-os.png) |
 | JOIN duplo e total por `SUM` — não existe coluna de total | Os itens gravados pela transação (associativa N:N) |
 | ![Constraints](docs/prints/16-banco-constraints.png) | ![Políticas das FKs](docs/prints/17-banco-fk-politicas.png) |
