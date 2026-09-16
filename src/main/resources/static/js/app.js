@@ -1,14 +1,20 @@
 /* Oficina Mecânica — front-end em jQuery puro (sem frameworks SPA).
- * Cada módulo (Clientes, Veículos, Serviços, OS) segue o mesmo padrão:
+ * Cada módulo (Clientes, Veículos, Serviços, OS, Usuários) segue o mesmo padrão:
  *   carregar()  -> GET lista e monta a tabela
  *   abrirModal() -> preenche o formulário (novo ou edição)
  *   submit       -> POST (novo) ou PUT (edição)
  *   excluir      -> DELETE após confirmação
+ *
+ * A página só começa a funcionar depois de confirmar a sessão em
+ * /api/auth/sessao — ver o bloco "início" no fim do arquivo.
  */
 (function ($) {
   'use strict';
 
   const API = '/api';
+
+  /** Dados de quem está logado. Preenchido no início, antes de qualquer tela. */
+  let sessao = null;
 
   // ------------------------------------------------------------ utilidades
 
@@ -54,6 +60,279 @@
   function debounce(fn, ms) {
     let t;
     return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+  }
+
+  // ------------------------------------------------------------ sessão e segurança
+
+  /* Todo POST/PUT/DELETE leva o token anti-CSRF no cabeçalho. O token não está
+     no cookie de propósito: é justamente por um site de fora não conseguir lê-lo
+     que o ataque de CSRF não passa (ver security/FiltroAutenticacao.java). */
+  $.ajaxSetup({
+    beforeSend: function (xhr, opcoes) {
+      if (sessao && !/^(GET|HEAD|OPTIONS)$/i.test(opcoes.type || 'GET')) {
+        xhr.setRequestHeader('X-CSRF-Token', sessao.csrfToken);
+      }
+    }
+  });
+
+  /* Sessão expirada em qualquer chamada: volta para o login em vez de deixar a
+     tela quebrada mostrando erro atrás de erro. */
+  $(document).ajaxError(function (evento, xhr) {
+    if (xhr.status === 401) {
+      window.location.replace('/login.html');
+    }
+  });
+
+  function iniciais(nome) {
+    const partes = String(nome || '').trim().split(/\s+/);
+    const primeira = partes[0] ? partes[0][0] : '?';
+    const ultima = partes.length > 1 ? partes[partes.length - 1][0] : '';
+    return (primeira + ultima).toUpperCase();
+  }
+
+  function aplicarSessao() {
+    $('#usuarioNome').text(sessao.nome);
+    $('#usuarioEmail').text(sessao.email);
+    $('#usuarioPerfil').text(sessao.admin ? 'Administrador' : 'Atendente');
+    $('#usuarioIniciais').text(iniciais(sessao.nome));
+    // O menu de usuários só aparece para ADMIN — e o servidor confere de novo
+    // a cada chamada, porque esconder botão não é controle de acesso.
+    $('.somente-admin').toggleClass('d-none', !sessao.admin);
+  }
+
+  $('#btnSair').on('click', function () {
+    $.ajax({ url: API + '/auth/logout', type: 'POST' })
+      .always(function () { window.location.replace('/login.html'); });
+  });
+
+  // ------------------------------------------------------------ navegação
+
+  const PAGINAS = {
+    dashboard: { titulo: 'Dashboard', carregar: carregarDashboard },
+    clientes: { titulo: 'Clientes', carregar: carregarClientes },
+    veiculos: { titulo: 'Veículos', carregar: carregarVeiculos },
+    servicos: { titulo: 'Serviços', carregar: carregarServicos },
+    ordens: { titulo: 'Ordens de Serviço', carregar: carregarOrdens },
+    usuarios: { titulo: 'Usuários', carregar: carregarUsuarios }
+  };
+
+  function irPara(nome) {
+    const pagina = PAGINAS[nome] ? nome : 'dashboard';
+    $('.bl-item').removeClass('ativo').filter('[data-pagina="' + pagina + '"]').addClass('ativo');
+    $('.pagina').removeClass('ativa');
+    $('#pg' + pagina.charAt(0).toUpperCase() + pagina.slice(1)).addClass('ativa');
+    $('#tituloPagina').text(PAGINAS[pagina].titulo);
+    fecharMenuNoCelular();
+    PAGINAS[pagina].carregar();
+  }
+
+  $('.bl-item').on('click', function () { irPara($(this).data('pagina')); });
+
+  function fecharMenuNoCelular() {
+    $('body').removeClass('menu-aberto');
+    $('#blSombra').removeClass('visivel');
+  }
+
+  $('#btnMenu').on('click', function () {
+    $('body').toggleClass('menu-aberto');
+    $('#blSombra').toggleClass('visivel', $('body').hasClass('menu-aberto'));
+  });
+
+  $('#blSombra').on('click', fecharMenuNoCelular);
+
+  /* Menu recolhido fica gravado no navegador: quem prefere a coluna de ícones
+     não precisa recolher de novo a cada visita. */
+  $('#btnRecolher').on('click', function () {
+    const recolhido = !$('body').hasClass('recolhido');
+    $('body').toggleClass('recolhido', recolhido);
+    $('#iconeRecolher').toggleClass('bi-chevron-left', !recolhido).toggleClass('bi-chevron-right', recolhido);
+    try {
+      window.localStorage.setItem('oficina.menuRecolhido', recolhido ? '1' : '0');
+    } catch (e) { /* navegação anônima: só não lembra da escolha */ }
+  });
+
+  function restaurarMenu() {
+    let recolhido = false;
+    try {
+      recolhido = window.localStorage.getItem('oficina.menuRecolhido') === '1';
+    } catch (e) { /* idem */ }
+    if (recolhido) {
+      $('body').addClass('recolhido');
+      $('#iconeRecolher').removeClass('bi-chevron-left').addClass('bi-chevron-right');
+    }
+  }
+
+  // ------------------------------------------------------------ DASHBOARD
+
+  /* As cores dos gráficos vêm do style.css. Assim existe um lugar só para
+     mexer na paleta, e o SVG desenhado aqui nunca sai do tom dos cartões. */
+  function corDoTema(variavel, alternativa) {
+    const valor = getComputedStyle(document.documentElement).getPropertyValue(variavel).trim();
+    return valor || alternativa;
+  }
+
+  const CORES_STATUS = {
+    ABERTA: corDoTema('--os-aberta', '#d87b46'),
+    EM_ANDAMENTO: corDoTema('--os-andamento', '#dbb157'),
+    CONCLUIDA: corDoTema('--os-concluida', '#61b885'),
+    CANCELADA: corDoTema('--os-cancelada', '#aeb4ba')
+  };
+
+  const COR_TEXTO_GRAFICO = corDoTema('--painel-texto', '#3f4750');
+
+  function cartaoIndicador(classe, icone, rotulo, valor, nota) {
+    return '<div class="col-sm-6 col-xl-3">' +
+      '<div class="card indicador ' + classe + '">' +
+        '<div class="indicador-icone"><i class="bi ' + icone + '"></i></div>' +
+        '<div>' +
+          '<div class="indicador-rotulo">' + esc(rotulo) + '</div>' +
+          '<div class="indicador-valor">' + esc(valor) + '</div>' +
+          '<div class="indicador-nota">' + esc(nota) + '</div>' +
+        '</div>' +
+      '</div></div>';
+  }
+
+  /**
+   * Rosca de participação desenhada à mão em SVG.
+   * O projeto não usa biblioteca de gráficos (nem tem internet garantida), então
+   * o caminho de cada fatia é calculado aqui mesmo com seno e cosseno.
+   */
+  function desenharRosca(fatias) {
+    const total = fatias.reduce(function (s, f) { return s + f.valor; }, 0);
+    if (!total) {
+      return '<p class="vazio">Nenhuma ordem de serviço registrada ainda.</p>';
+    }
+
+    const cx = 130, cy = 130, raio = 108, buraco = 66;
+    let svg = '<svg viewBox="0 0 260 260" role="img" aria-label="Distribuição das ordens por situação">';
+
+    if (fatias.filter(function (f) { return f.valor > 0; }).length === 1) {
+      // Uma fatia só: um arco de 360° degenera, então o anel é desenhado inteiro.
+      const unica = fatias.find(function (f) { return f.valor > 0; });
+      svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + ((raio + buraco) / 2) + '" fill="none" stroke="'
+           + unica.cor + '" stroke-width="' + (raio - buraco) + '"></circle>';
+    } else {
+      let angulo = -Math.PI / 2;               // começa no topo
+      fatias.forEach(function (f) {
+        if (!f.valor) return;
+        const abertura = (f.valor / total) * Math.PI * 2;
+        const fim = angulo + abertura;
+        const grande = abertura > Math.PI ? 1 : 0;
+        const p = function (r, a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+        const a1 = p(raio, angulo), a2 = p(raio, fim), b1 = p(buraco, fim), b2 = p(buraco, angulo);
+        svg += '<path d="M' + a1 + ' A' + raio + ' ' + raio + ' 0 ' + grande + ' 1 ' + a2 +
+               ' L' + b1 + ' A' + buraco + ' ' + buraco + ' 0 ' + grande + ' 0 ' + b2 + ' Z"' +
+               ' fill="' + f.cor + '"></path>';
+        angulo = fim;
+      });
+    }
+
+    svg += '<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" font-size="30" font-weight="700" fill="'
+         + COR_TEXTO_GRAFICO + '">' + total + '</text>';
+    svg += '<text x="' + cx + '" y="' + (cy + 20) + '" text-anchor="middle" font-size="12" fill="#6c757d">'
+         + (total === 1 ? 'ordem' : 'ordens') + '</text>';
+    svg += '</svg>';
+
+    let legenda = '<div class="legenda">';
+    fatias.forEach(function (f) {
+      legenda += '<span><i style="background:' + f.cor + '"></i>' + esc(f.rotulo) + ': <strong>' + f.valor + '</strong></span>';
+    });
+    legenda += '</div>';
+
+    return svg + legenda;
+  }
+
+  /** Barras do faturamento por mês, também em SVG escrito à mão. */
+  function desenharBarras(meses) {
+    if (!meses.length) {
+      return '<p class="vazio">Sem movimento nos últimos meses.</p>';
+    }
+
+    const larg = 560, alt = 240, base = alt - 34, topo = 16;
+    const maior = Math.max.apply(null, meses.map(function (m) { return Number(m.total); })) || 1;
+    const passo = larg / meses.length;
+    const larguraBarra = Math.min(54, passo * 0.55);
+
+    let svg = '<svg viewBox="0 0 ' + larg + ' ' + alt + '" role="img" aria-label="Faturamento por mês">';
+    svg += '<line x1="0" y1="' + base + '" x2="' + larg + '" y2="' + base + '" stroke="#e5e7eb" stroke-width="1"></line>';
+
+    meses.forEach(function (m, i) {
+      const valor = Number(m.total);
+      const altura = Math.max(3, (valor / maior) * (base - topo));
+      const x = i * passo + (passo - larguraBarra) / 2;
+      const y = base - altura;
+      const partes = m.mes.split('-');            // "2026-09" -> ["2026", "09"]
+      const rotulo = partes[1] + '/' + partes[0].slice(2);
+
+      svg += '<rect x="' + x + '" y="' + y + '" width="' + larguraBarra + '" height="' + altura +
+             '" rx="5" fill="' + CORES_STATUS.ABERTA + '" opacity="' + (i === meses.length - 1 ? '1' : '.8') + '"></rect>';
+      svg += '<text x="' + (x + larguraBarra / 2) + '" y="' + (y - 6) + '" text-anchor="middle" font-size="11" fill="#6c757d">'
+           + (valor >= 1000 ? (valor / 1000).toFixed(1) + 'k' : valor.toFixed(0)) + '</text>';
+      svg += '<text x="' + (x + larguraBarra / 2) + '" y="' + (base + 18) + '" text-anchor="middle" font-size="11" fill="#6c757d">'
+           + rotulo + '</text>';
+      svg += '<text x="' + (x + larguraBarra / 2) + '" y="' + (base + 30) + '" text-anchor="middle" font-size="9" fill="#a3aab1">'
+           + m.quantidade + ' OS</text>';
+    });
+
+    svg += '</svg>';
+    return svg;
+  }
+
+  function carregarDashboard() {
+    $.getJSON(API + '/dashboard')
+      .done(function (d) {
+        const ind = d.indicadores;
+
+        $('#cartoesIndicadores').html(
+          cartaoIndicador('', 'bi-clipboard-pulse', 'OS em aberto', ind.osAbertas,
+            fmtMoeda(ind.emAberto) + ' a receber') +
+          cartaoIndicador('verde', 'bi-check2-circle', 'OS concluídas', ind.osConcluidas,
+            'Ticket médio ' + fmtMoeda(ind.ticketMedio)) +
+          cartaoIndicador('ambar', 'bi-cash-coin', 'Faturamento', fmtMoeda(ind.faturamento),
+            'Somente ordens concluídas') +
+          cartaoIndicador('grafite', 'bi-people', 'Clientes', ind.clientes,
+            ind.veiculos + ' veículo(s) · ' + ind.servicosAtivos + ' serviço(s) ativo(s)'));
+
+        $('#graficoStatus').html(desenharRosca(d.porStatus.map(function (s) {
+          return {
+            rotulo: (ROTULO_STATUS[s.status] || [s.status])[0],
+            valor: Number(s.quantidade),
+            cor: CORES_STATUS[s.status] || '#adb5bd'
+          };
+        })));
+
+        $('#graficoMeses').html(desenharBarras(d.porMes));
+
+        const $top = $('#tabelaTopServicos tbody').empty();
+        if (!d.topServicos.length) {
+          $top.append('<tr><td colspan="3" class="vazio">Nenhum item lançado ainda.</td></tr>');
+        }
+        d.topServicos.forEach(function (s) {
+          $top.append(
+            '<tr>' +
+              '<td>' + esc(s.descricao) +
+                ' <span class="badge text-bg-light border ms-1">' + rotuloTipo(s.tipo) + '</span></td>' +
+              '<td class="text-center">' + s.quantidade + '</td>' +
+              '<td class="text-end fw-medium">' + fmtMoeda(s.total) + '</td>' +
+            '</tr>');
+        });
+
+        const $ult = $('#tabelaUltimasOrdens tbody').empty();
+        if (!d.ultimasOrdens.length) {
+          $ult.append('<tr><td colspan="4" class="vazio">Nenhuma ordem de serviço.</td></tr>');
+        }
+        d.ultimasOrdens.forEach(function (o) {
+          $ult.append(
+            '<tr>' +
+              '<td class="text-secondary">#' + o.id + '</td>' +
+              '<td><span class="badge text-bg-dark">' + esc(o.veiculoPlaca) + '</span><br>' +
+                  '<small class="text-secondary">' + esc(o.clienteNome) + '</small></td>' +
+              '<td>' + badgeStatus(o.status) + '</td>' +
+              '<td class="text-end fw-medium">' + fmtMoeda(o.valorTotal) + '</td>' +
+            '</tr>');
+        });
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
   }
 
   // ------------------------------------------------------------ CLIENTES
@@ -668,17 +947,172 @@
       .always(function () { $btn.prop('disabled', false); });
   });
 
-  // ------------------------------------------------------------ inicialização
-  carregarClientes();
+  // ------------------------------------------------------------ USUÁRIOS (ADMIN)
 
-  const jaCarregada = { tabClientes: true };
-  $('#abas button').on('shown.bs.tab', function (e) {
-    const alvo = $(e.target).data('bs-target').substring(1);
-    if (jaCarregada[alvo]) return;
-    jaCarregada[alvo] = true;
-    if (alvo === 'tabVeiculos') carregarVeiculos();
-    if (alvo === 'tabServicos') carregarServicos();
-    if (alvo === 'tabOrdens') carregarOrdens();
+  const modalUsuario = new bootstrap.Modal('#modalUsuario');
+  const modalRedefinirSenha = new bootstrap.Modal('#modalRedefinirSenha');
+  const modalMinhaSenha = new bootstrap.Modal('#modalMinhaSenha');
+
+  function carregarUsuarios() {
+    const busca = $('#buscaUsuario').val().trim();
+    $.getJSON(API + '/usuarios', busca ? { busca: busca } : {})
+      .done(function (lista) {
+        const $tb = $('#tabelaUsuarios tbody').empty();
+        $('#totalUsuarios').text(lista.length + ' usuário(s)');
+        if (!lista.length) {
+          $tb.append('<tr><td colspan="7" class="text-center text-secondary py-4">Nenhum usuário encontrado.</td></tr>');
+          return;
+        }
+        lista.forEach(function (u) {
+          const situacao = !u.ativo
+            ? '<span class="badge text-bg-secondary">Inativo</span>'
+            : (u.bloqueado
+                ? '<span class="badge text-bg-danger" title="Tentativas de senha erradas">Bloqueado</span>'
+                : '<span class="badge text-bg-success">Ativo</span>');
+          const euMesmo = Number(u.id) === Number(sessao.id);
+          $tb.append(
+            '<tr data-id="' + u.id + '">' +
+              '<td class="text-secondary">' + u.id + '</td>' +
+              '<td class="fw-medium nome">' + esc(u.nome) +
+                (euMesmo ? ' <span class="badge text-bg-light border">você</span>' : '') + '</td>' +
+              '<td>' + esc(u.email) + '</td>' +
+              '<td>' + (u.perfil === 'ADMIN'
+                ? '<span class="badge text-bg-dark">Administrador</span>'
+                : '<span class="badge text-bg-light border">Atendente</span>') + '</td>' +
+              '<td>' + situacao + '</td>' +
+              '<td class="text-nowrap small text-secondary">' + (u.ultimoAcesso ? fmtData(u.ultimoAcesso) : 'nunca entrou') + '</td>' +
+              '<td class="text-end text-nowrap">' +
+                '<button class="btn btn-sm btn-outline-secondary btn-senha" title="Redefinir a senha"><i class="bi bi-key"></i></button> ' +
+                '<button class="btn btn-sm btn-outline-primary btn-editar" title="Editar"><i class="bi bi-pencil"></i></button> ' +
+                '<button class="btn btn-sm btn-outline-danger btn-excluir" title="Excluir"' +
+                  (euMesmo ? ' disabled' : '') + '><i class="bi bi-trash"></i></button>' +
+              '</td>' +
+            '</tr>');
+        });
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  }
+
+  function abrirModalUsuario(u) {
+    const $f = $('#formUsuario');
+    $f[0].reset();
+    $f.removeClass('was-validated');
+    $('#usuarioId').val(u ? u.id : '');
+    $('#tituloModalUsuario').text(u ? 'Editar usuário #' + u.id : 'Novo usuário');
+    // A senha só é pedida na criação; depois ela se troca pelo botão da chave.
+    $('#campoSenhaNovoUsuario').toggleClass('d-none', !!u);
+    $('#usuarioSenha').prop('required', !u);
+    if (u) {
+      $('#usuarioNomeCampo').val(u.nome);
+      $('#usuarioEmailCampo').val(u.email);
+      $('#usuarioPerfilCampo').val(u.perfil);
+      $('#usuarioAtivo').prop('checked', u.ativo);
+    } else {
+      $('#usuarioAtivo').prop('checked', true);
+    }
+    modalUsuario.show();
+  }
+
+  $('#btnNovoUsuario').on('click', function () { abrirModalUsuario(null); });
+  $('#buscaUsuario').on('input', debounce(carregarUsuarios, 250));
+
+  $('#tabelaUsuarios').on('click', '.btn-editar', function () {
+    $.getJSON(API + '/usuarios/' + $(this).closest('tr').data('id'))
+      .done(abrirModalUsuario)
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
   });
+
+  $('#tabelaUsuarios').on('click', '.btn-excluir', function () {
+    const $tr = $(this).closest('tr');
+    if (!window.confirm('Excluir o usuário "' + $tr.find('.nome').text().replace(' você', '') + '"?')) return;
+    $.ajax({ url: API + '/usuarios/' + $tr.data('id'), type: 'DELETE' })
+      .done(function () { toast('Usuário excluído'); carregarUsuarios(); })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  });
+
+  $('#tabelaUsuarios').on('click', '.btn-senha', function () {
+    const $tr = $(this).closest('tr');
+    $('#formRedefinirSenha')[0].reset();
+    $('#formRedefinirSenha').removeClass('was-validated');
+    $('#redefinirUsuarioId').val($tr.data('id'));
+    $('#redefinirDescricao').text('Definindo uma nova senha para ' + $tr.find('.nome').text().replace(' você', '') + '.');
+    modalRedefinirSenha.show();
+  });
+
+  $('#formUsuario').on('submit', function (e) {
+    e.preventDefault();
+    if (!this.checkValidity()) { $(this).addClass('was-validated'); return; }
+    const id = $('#usuarioId').val();
+    const $btn = $('#btnSalvarUsuario').prop('disabled', true);
+    $.ajax({
+      url: id ? API + '/usuarios/' + id : API + '/usuarios',
+      type: id ? 'PUT' : 'POST',
+      data: $(this).serialize() + '&ativo=' + $('#usuarioAtivo').is(':checked')
+    })
+      .done(function () {
+        modalUsuario.hide();
+        toast(id ? 'Usuário atualizado' : 'Usuário cadastrado');
+        carregarUsuarios();
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
+      .always(function () { $btn.prop('disabled', false); });
+  });
+
+  $('#formRedefinirSenha').on('submit', function (e) {
+    e.preventDefault();
+    if (!this.checkValidity()) { $(this).addClass('was-validated'); return; }
+    const id = $('#redefinirUsuarioId').val();
+    const $btn = $('#btnSalvarRedefinicao').prop('disabled', true);
+    $.ajax({ url: API + '/usuarios/' + id + '/senha', type: 'PUT', data: $(this).serialize() })
+      .done(function () {
+        modalRedefinirSenha.hide();
+        toast('Senha redefinida. A pessoa precisa entrar de novo.');
+        carregarUsuarios();
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
+      .always(function () { $btn.prop('disabled', false); });
+  });
+
+  // ------------------------------------------------------------ trocar a própria senha
+
+  $('#btnTrocarSenha').on('click', function () {
+    $('#formMinhaSenha')[0].reset();
+    $('#formMinhaSenha').removeClass('was-validated');
+    modalMinhaSenha.show();
+  });
+
+  $('#formMinhaSenha').on('submit', function (e) {
+    e.preventDefault();
+    if (!this.checkValidity()) { $(this).addClass('was-validated'); return; }
+    if ($('#novaSenha').val() !== $('#confirmaSenha').val()) {
+      toast('A confirmação não confere com a nova senha.', 'danger');
+      return;
+    }
+    const $btn = $('#btnSalvarMinhaSenha').prop('disabled', true);
+    $.ajax({ url: API + '/auth/senha', type: 'POST',
+             data: { senhaAtual: $('#senhaAtual').val(), novaSenha: $('#novaSenha').val() } })
+      .done(function (nova) {
+        sessao = nova;                    // a troca de senha abre uma sessão nova
+        modalMinhaSenha.hide();
+        toast('Senha alterada. As outras sessões foram encerradas.');
+      })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
+      .always(function () { $btn.prop('disabled', false); });
+  });
+
+  // ------------------------------------------------------------ início
+
+  /* Nada de tela antes de saber quem está do outro lado: se não houver sessão,
+     o servidor responde 401 e o navegador vai para o login. */
+  $.getJSON(API + '/auth/sessao')
+    .done(function (s) {
+      sessao = s;
+      aplicarSessao();
+      restaurarMenu();
+      irPara('dashboard');
+    })
+    .fail(function () {
+      window.location.replace('/login.html');
+    });
 
 })(jQuery);
