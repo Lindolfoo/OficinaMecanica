@@ -10,155 +10,305 @@
 </head>
 <body>
 
-<nav class="navbar navbar-dark topo">
-  <div class="container">
-    <span class="navbar-brand d-flex align-items-center gap-2">
-      <i class="bi bi-wrench-adjustable-circle fs-4 text-accent"></i>
-      <span>Oficina Mecânica</span>
-    </span>
-    <span class="navbar-text small text-secondary">NP1 · Banco de Dados · UNIP</span>
-  </div>
-</nav>
+<div class="app">
 
-<main class="container py-4">
-
-  <ul class="nav nav-tabs mb-4" id="abas" role="tablist">
-    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabClientes" type="button"><i class="bi bi-people"></i> Clientes</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabVeiculos" type="button"><i class="bi bi-car-front"></i> Veículos</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabServicos" type="button"><i class="bi bi-tools"></i> Serviços</button></li>
-    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabOrdens" type="button"><i class="bi bi-clipboard-check"></i> Ordens de Serviço</button></li>
-  </ul>
-
-  <div class="tab-content">
-
-    <!-- ===================== CLIENTES ===================== -->
-    <div class="tab-pane fade show active" id="tabClientes">
-      <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
-        <div class="input-group busca">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input type="search" id="buscaCliente" class="form-control" placeholder="Buscar por nome ou CPF" autocomplete="off">
-        </div>
-        <button class="btn btn-primary" id="btnNovoCliente"><i class="bi bi-plus-lg"></i> Novo cliente</button>
-      </div>
-
-      <div class="table-responsive card">
-        <table class="table table-hover align-middle mb-0" id="tabelaClientes">
-          <thead class="table-light">
-            <tr>
-              <th style="width:64px">#</th>
-              <th>Nome</th>
-              <th>CPF</th>
-              <th>Telefone</th>
-              <th>E-mail</th>
-              <th class="text-end" style="width:110px">Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <p class="text-secondary small mt-2 mb-0" id="totalClientes"></p>
+  <!-- ===================== MENU LATERAL ===================== -->
+  <aside class="barra-lateral" id="barraLateral">
+    <div class="bl-marca">
+      <i class="bi bi-wrench-adjustable-circle"></i>
+      <span class="bl-texto">Oficina</span>
     </div>
 
-    <!-- ===================== VEÍCULOS ===================== -->
-    <div class="tab-pane fade" id="tabVeiculos">
-      <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
-        <div class="input-group busca">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input type="search" id="buscaVeiculo" class="form-control" placeholder="Buscar por placa, marca ou modelo" autocomplete="off">
+    <nav class="bl-nav">
+      <button class="bl-item ativo" data-pagina="dashboard" type="button">
+        <i class="bi bi-speedometer2"></i><span class="bl-texto">Dashboard</span>
+      </button>
+
+      <p class="bl-grupo bl-texto">Gerenciamento</p>
+      <button class="bl-item" data-pagina="clientes" type="button">
+        <i class="bi bi-people"></i><span class="bl-texto">Clientes</span>
+      </button>
+      <button class="bl-item" data-pagina="veiculos" type="button">
+        <i class="bi bi-car-front"></i><span class="bl-texto">Veículos</span>
+      </button>
+      <button class="bl-item" data-pagina="servicos" type="button">
+        <i class="bi bi-tools"></i><span class="bl-texto">Serviços</span>
+      </button>
+
+      <p class="bl-grupo bl-texto">Operacional</p>
+      <button class="bl-item" data-pagina="ordens" type="button">
+        <i class="bi bi-clipboard-check"></i><span class="bl-texto">Ordens de Serviço</span>
+      </button>
+
+      <p class="bl-grupo bl-texto somente-admin d-none">Administração</p>
+      <button class="bl-item somente-admin d-none" data-pagina="usuarios" type="button">
+        <i class="bi bi-person-gear"></i><span class="bl-texto">Usuários</span>
+      </button>
+    </nav>
+
+    <button class="bl-recolher" id="btnRecolher" type="button" aria-label="Recolher o menu">
+      <i class="bi bi-chevron-left" id="iconeRecolher"></i><span class="bl-texto">Recolher</span>
+    </button>
+  </aside>
+
+  <!-- ===================== ÁREA DE TRABALHO ===================== -->
+  <div class="area">
+
+    <header class="topo">
+      <button class="btn-menu" id="btnMenu" type="button" aria-label="Abrir o menu">
+        <i class="bi bi-list"></i>
+      </button>
+      <h1 class="topo-titulo" id="tituloPagina">Dashboard</h1>
+
+      <div class="dropdown">
+        <button class="usuario-chip" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <span class="usuario-avatar" id="usuarioIniciais">··</span>
+          <span class="usuario-dados">
+            <span class="usuario-nome" id="usuarioNome">carregando…</span>
+            <span class="usuario-perfil" id="usuarioPerfil"></span>
+          </span>
+          <i class="bi bi-chevron-down small"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><h6 class="dropdown-header" id="usuarioEmail"></h6></li>
+          <li><button class="dropdown-item" type="button" id="btnTrocarSenha">
+            <i class="bi bi-key"></i> Trocar minha senha</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item text-danger" type="button" id="btnSair">
+            <i class="bi bi-box-arrow-right"></i> Sair</button></li>
+        </ul>
+      </div>
+    </header>
+
+    <main class="conteudo">
+
+      <!-- ===================== DASHBOARD ===================== -->
+      <section class="pagina ativa" id="pgDashboard">
+        <div class="row g-3 mb-3" id="cartoesIndicadores"></div>
+
+        <div class="row g-3">
+          <div class="col-xl-5">
+            <div class="card cartao h-100">
+              <h2 class="cartao-titulo">Ordens por situação</h2>
+              <div id="graficoStatus" class="grafico"></div>
+            </div>
+          </div>
+
+          <div class="col-xl-7">
+            <div class="card cartao h-100">
+              <h2 class="cartao-titulo">Movimento dos últimos 6 meses</h2>
+              <div id="graficoMeses" class="grafico"></div>
+            </div>
+          </div>
+
+          <div class="col-xl-6">
+            <div class="card cartao h-100">
+              <h2 class="cartao-titulo">Itens que mais faturam</h2>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" id="tabelaTopServicos">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th class="text-center">Qtd.</th>
+                      <th class="text-end">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-xl-6">
+            <div class="card cartao h-100">
+              <h2 class="cartao-titulo">Últimas ordens de serviço</h2>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" id="tabelaUltimasOrdens">
+                  <thead>
+                    <tr>
+                      <th>OS</th>
+                      <th>Veículo</th>
+                      <th>Situação</th>
+                      <th class="text-end">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-primary" id="btnNovoVeiculo"><i class="bi bi-plus-lg"></i> Novo veículo</button>
-      </div>
+      </section>
 
-      <div class="table-responsive card">
-        <table class="table table-hover align-middle mb-0" id="tabelaVeiculos">
-          <thead class="table-light">
-            <tr>
-              <th style="width:64px">#</th>
-              <th>Placa</th>
-              <th>Marca / Modelo</th>
-              <th>Ano</th>
-              <th>Cor</th>
-              <th>Proprietário</th>
-              <th class="text-end" style="width:150px">Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <p class="text-secondary small mt-2 mb-0" id="totalVeiculos"></p>
-    </div>
-
-    <!-- ===================== SERVIÇOS ===================== -->
-    <div class="tab-pane fade" id="tabServicos">
-      <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
-        <div class="input-group busca">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input type="search" id="buscaServico" class="form-control" placeholder="Buscar serviço ou peça" autocomplete="off">
-        </div>
-        <button class="btn btn-primary" id="btnNovoServico"><i class="bi bi-plus-lg"></i> Novo serviço</button>
-      </div>
-
-      <div class="table-responsive card">
-        <table class="table table-hover align-middle mb-0" id="tabelaServicos">
-          <thead class="table-light">
-            <tr>
-              <th style="width:64px">#</th>
-              <th>Descrição</th>
-              <th>Tipo</th>
-              <th class="text-end">Preço</th>
-              <th>Situação</th>
-              <th class="text-end" style="width:110px">Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <p class="text-secondary small mt-2 mb-0" id="totalServicos"></p>
-    </div>
-
-    <!-- ===================== ORDENS DE SERVIÇO ===================== -->
-    <div class="tab-pane fade" id="tabOrdens">
-      <div class="row g-2 mb-3" id="resumoOs"></div>
-
-      <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
-        <div class="d-flex gap-2 flex-wrap">
+      <!-- ===================== CLIENTES ===================== -->
+      <section class="pagina" id="pgClientes">
+        <div class="barra-acoes">
           <div class="input-group busca">
             <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input type="search" id="buscaOrdem" class="form-control" placeholder="Buscar por placa, cliente ou problema" autocomplete="off">
+            <input type="search" id="buscaCliente" class="form-control" placeholder="Buscar por nome ou CPF" autocomplete="off">
           </div>
-          <select id="filtroStatus" class="form-select" style="max-width:200px">
-            <option value="">Todos os status</option>
-            <option value="ABERTA">Aberta</option>
-            <option value="EM_ANDAMENTO">Em andamento</option>
-            <option value="CONCLUIDA">Concluída</option>
-            <option value="CANCELADA">Cancelada</option>
-          </select>
+          <button class="btn btn-primary" id="btnNovoCliente"><i class="bi bi-plus-lg"></i> Novo cliente</button>
         </div>
-        <button class="btn btn-primary" id="btnNovaOrdem"><i class="bi bi-plus-lg"></i> Nova ordem de serviço</button>
-      </div>
 
-      <div class="table-responsive card">
-        <table class="table table-hover align-middle mb-0" id="tabelaOrdens">
-          <thead class="table-light">
-            <tr>
-              <th style="width:64px">#</th>
-              <th>Veículo</th>
-              <th>Cliente</th>
-              <th>Problema</th>
-              <th>Abertura</th>
-              <th>Status</th>
-              <th class="text-end">Total</th>
-              <th class="text-end" style="width:150px">Ações</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <p class="text-secondary small mt-2 mb-0" id="totalOrdens"></p>
-    </div>
+        <div class="table-responsive card">
+          <table class="table table-hover align-middle mb-0" id="tabelaClientes">
+            <thead class="table-light">
+              <tr>
+                <th style="width:64px">#</th>
+                <th>Nome</th>
+                <th>CPF</th>
+                <th>Telefone</th>
+                <th>E-mail</th>
+                <th class="text-end" style="width:110px">Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="text-secondary small mt-2 mb-0" id="totalClientes"></p>
+      </section>
 
+      <!-- ===================== VEÍCULOS ===================== -->
+      <section class="pagina" id="pgVeiculos">
+        <div class="barra-acoes">
+          <div class="input-group busca">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" id="buscaVeiculo" class="form-control" placeholder="Buscar por placa, marca ou modelo" autocomplete="off">
+          </div>
+          <button class="btn btn-primary" id="btnNovoVeiculo"><i class="bi bi-plus-lg"></i> Novo veículo</button>
+        </div>
+
+        <div class="table-responsive card">
+          <table class="table table-hover align-middle mb-0" id="tabelaVeiculos">
+            <thead class="table-light">
+              <tr>
+                <th style="width:64px">#</th>
+                <th>Placa</th>
+                <th>Marca / Modelo</th>
+                <th>Ano</th>
+                <th>Cor</th>
+                <th>Proprietário</th>
+                <th class="text-end" style="width:150px">Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="text-secondary small mt-2 mb-0" id="totalVeiculos"></p>
+      </section>
+
+      <!-- ===================== SERVIÇOS ===================== -->
+      <section class="pagina" id="pgServicos">
+        <div class="barra-acoes">
+          <div class="input-group busca">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" id="buscaServico" class="form-control" placeholder="Buscar serviço ou peça" autocomplete="off">
+          </div>
+          <button class="btn btn-primary" id="btnNovoServico"><i class="bi bi-plus-lg"></i> Novo serviço</button>
+        </div>
+
+        <div class="table-responsive card">
+          <table class="table table-hover align-middle mb-0" id="tabelaServicos">
+            <thead class="table-light">
+              <tr>
+                <th style="width:64px">#</th>
+                <th>Descrição</th>
+                <th>Tipo</th>
+                <th class="text-end">Preço</th>
+                <th>Situação</th>
+                <th class="text-end" style="width:110px">Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="text-secondary small mt-2 mb-0" id="totalServicos"></p>
+      </section>
+
+      <!-- ===================== ORDENS DE SERVIÇO ===================== -->
+      <section class="pagina" id="pgOrdens">
+        <div class="row g-2 mb-3" id="resumoOs"></div>
+
+        <div class="barra-acoes">
+          <div class="d-flex gap-2 flex-wrap">
+            <div class="input-group busca">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="search" id="buscaOrdem" class="form-control" placeholder="Buscar por placa, cliente ou problema" autocomplete="off">
+            </div>
+            <select id="filtroStatus" class="form-select" style="max-width:200px">
+              <option value="">Todos os status</option>
+              <option value="ABERTA">Aberta</option>
+              <option value="EM_ANDAMENTO">Em andamento</option>
+              <option value="CONCLUIDA">Concluída</option>
+              <option value="CANCELADA">Cancelada</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" id="btnNovaOrdem"><i class="bi bi-plus-lg"></i> Nova ordem de serviço</button>
+        </div>
+
+        <div class="table-responsive card">
+          <table class="table table-hover align-middle mb-0" id="tabelaOrdens">
+            <thead class="table-light">
+              <tr>
+                <th style="width:64px">#</th>
+                <th>Veículo</th>
+                <th>Cliente</th>
+                <th>Problema</th>
+                <th>Abertura</th>
+                <th>Status</th>
+                <th class="text-end">Total</th>
+                <th class="text-end" style="width:150px">Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="text-secondary small mt-2 mb-0" id="totalOrdens"></p>
+      </section>
+
+      <!-- ===================== USUÁRIOS (só ADMIN) ===================== -->
+      <section class="pagina" id="pgUsuarios">
+        <div class="alert alert-secondary d-flex gap-2 align-items-start">
+          <i class="bi bi-shield-lock fs-5"></i>
+          <div class="small mb-0">
+            Contas que entram no sistema. A senha nunca é guardada: o banco grava apenas
+            o resultado de um <strong>PBKDF2</strong> com sal aleatório.
+            <strong>ADMIN</strong> administra usuários; <strong>ATENDENTE</strong> opera o dia a dia.
+          </div>
+        </div>
+
+        <div class="barra-acoes">
+          <div class="input-group busca">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" id="buscaUsuario" class="form-control" placeholder="Buscar por nome ou e-mail" autocomplete="off">
+          </div>
+          <button class="btn btn-primary" id="btnNovoUsuario"><i class="bi bi-plus-lg"></i> Novo usuário</button>
+        </div>
+
+        <div class="table-responsive card">
+          <table class="table table-hover align-middle mb-0" id="tabelaUsuarios">
+            <thead class="table-light">
+              <tr>
+                <th style="width:64px">#</th>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Perfil</th>
+                <th>Situação</th>
+                <th>Último acesso</th>
+                <th class="text-end" style="width:150px">Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="text-secondary small mt-2 mb-0" id="totalUsuarios"></p>
+      </section>
+
+    </main>
   </div>
-</main>
+</div>
+
+<div class="bl-sombra" id="blSombra"></div>
 
 <!-- ===================== MODAL: CLIENTE ===================== -->
 <div class="modal fade" id="modalCliente" tabindex="-1" aria-labelledby="tituloModalCliente">
@@ -430,6 +580,120 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="submit" class="btn btn-primary" id="btnSalvarOrdem">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: USUÁRIO ===================== -->
+<div class="modal fade" id="modalUsuario" tabindex="-1" aria-labelledby="tituloModalUsuario">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formUsuario" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloModalUsuario">Novo usuário</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="usuarioId">
+
+        <div class="mb-3">
+          <label class="form-label" for="usuarioNomeCampo">Nome <span class="text-danger">*</span></label>
+          <input name="nome" id="usuarioNomeCampo" class="form-control" required minlength="2" maxlength="100" autocomplete="off">
+          <div class="invalid-feedback">Informe o nome (2 a 100 caracteres).</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="usuarioEmailCampo">E-mail <span class="text-danger">*</span></label>
+          <input type="email" name="email" id="usuarioEmailCampo" class="form-control" required maxlength="120" autocomplete="off">
+          <div class="invalid-feedback">Informe um e-mail válido — é com ele que a pessoa entra.</div>
+        </div>
+
+        <div class="mb-3" id="campoSenhaNovoUsuario">
+          <label class="form-label" for="usuarioSenha">Senha inicial <span class="text-danger">*</span></label>
+          <input type="password" name="senha" id="usuarioSenha" class="form-control" maxlength="100" autocomplete="new-password">
+          <div class="form-text">Mínimo de 8 caracteres, com pelo menos uma letra e um número.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="usuarioPerfilCampo">Perfil <span class="text-danger">*</span></label>
+          <select name="perfil" id="usuarioPerfilCampo" class="form-select" required>
+            <option value="ATENDENTE">Atendente — opera o dia a dia</option>
+            <option value="ADMIN">Administrador — também administra usuários</option>
+          </select>
+        </div>
+
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="usuarioAtivo" checked>
+          <label class="form-check-label" for="usuarioAtivo">Pode entrar no sistema</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSalvarUsuario">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: TROCAR A PRÓPRIA SENHA ===================== -->
+<div class="modal fade" id="modalMinhaSenha" tabindex="-1" aria-labelledby="tituloMinhaSenha">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formMinhaSenha" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloMinhaSenha">Trocar minha senha</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" for="senhaAtual">Senha atual <span class="text-danger">*</span></label>
+          <input type="password" name="senhaAtual" id="senhaAtual" class="form-control" required autocomplete="current-password">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="novaSenha">Nova senha <span class="text-danger">*</span></label>
+          <input type="password" name="novaSenha" id="novaSenha" class="form-control" required autocomplete="new-password">
+          <div class="form-text">Mínimo de 8 caracteres, com pelo menos uma letra e um número.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="confirmaSenha">Repita a nova senha <span class="text-danger">*</span></label>
+          <input type="password" id="confirmaSenha" class="form-control" required autocomplete="new-password">
+        </div>
+        <p class="small text-secondary mb-0">
+          <i class="bi bi-info-circle"></i>
+          Ao trocar a senha, as sessões abertas em outros computadores são encerradas.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSalvarMinhaSenha">Trocar senha</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== MODAL: REDEFINIR SENHA DE OUTRO (ADMIN) ===================== -->
+<div class="modal fade" id="modalRedefinirSenha" tabindex="-1" aria-labelledby="tituloRedefinirSenha">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formRedefinirSenha" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title" id="tituloRedefinirSenha">Redefinir senha</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="redefinirUsuarioId">
+        <p class="text-secondary" id="redefinirDescricao"></p>
+        <div class="mb-3">
+          <label class="form-label" for="redefinirSenha">Nova senha <span class="text-danger">*</span></label>
+          <input type="password" name="novaSenha" id="redefinirSenha" class="form-control" required autocomplete="new-password">
+          <div class="form-text">Mínimo de 8 caracteres, com pelo menos uma letra e um número.</div>
+        </div>
+        <p class="small text-secondary mb-0">
+          <i class="bi bi-info-circle"></i>
+          A sessão dessa pessoa é encerrada na hora, e a conta é destravada se estiver bloqueada.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btnSalvarRedefinicao">Redefinir</button>
       </div>
     </form>
   </div>

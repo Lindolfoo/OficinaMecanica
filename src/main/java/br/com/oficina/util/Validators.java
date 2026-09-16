@@ -7,7 +7,23 @@ public final class Validators {
 
     private static final Pattern EMAIL = Pattern.compile("^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$");
 
+    /** Explicação da regra de senha, para a mensagem de erro e o texto da tela andarem juntos. */
+    public static final String REGRA_DA_SENHA =
+            "A senha deve ter no mínimo 8 caracteres, com pelo menos uma letra e um número.";
+
     private Validators() {
+    }
+
+    /**
+     * Piso mínimo de senha. O que realmente protege a senha é o PBKDF2 em
+     * {@code security/Senhas.java}; esta regra só evita o "123" de sempre.
+     */
+    public static boolean senhaForte(String senha) {
+        return senha != null
+                && senha.length() >= 8
+                && senha.length() <= 100
+                && senha.chars().anyMatch(Character::isLetter)
+                && senha.chars().anyMatch(Character::isDigit);
     }
 
     public static String somenteDigitos(String s) {

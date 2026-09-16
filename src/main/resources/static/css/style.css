@@ -1,17 +1,36 @@
-/* Identidade visual: grafite + laranja de sinalização (mundo da oficina). Resto é Bootstrap padrão. */
+/* Identidade visual: grafite + laranja de sinalização (mundo da oficina).
+   O resto continua sendo Bootstrap padrão — aqui só ficam a marca, o menu
+   lateral, o dashboard, a tela de login e a via impressa da OS. */
 :root {
   --oficina-grafite: #1f2428;
+  --oficina-grafite-fundo: #191e22;
+  --oficina-grafite-claro: #2b3238;
   --oficina-laranja: #e2590b;
   --oficina-laranja-escuro: #c24c08;
+  --oficina-laranja-claro: #f2751f;
+  --oficina-tela: #f3f4f6;
+  --oficina-borda: #e5e7eb;
+
+  /* Cores das situações de OS, usadas nos cartões e nos gráficos do dashboard.
+     São versões dessaturadas da identidade: mesma matiz do laranja da marca,
+     só que mais claras e menos vivas, porque no dashboard elas aparecem em
+     áreas grandes (rosca, barras, faixas dos cartões). O laranja forte fica
+     reservado para os botões, onde precisa chamar atenção. */
+  --os-aberta: #d87b46;
+  --os-andamento: #dbb157;
+  --os-concluida: #61b885;
+  --os-cancelada: #aeb4ba;
+
+  /* tons de apoio do dashboard */
+  --painel-ardosia: #7b868f;
+  --painel-texto: #3f4750;
+
+  --barra-largura: 256px;
+  --barra-recolhida: 76px;
 }
 
 body {
-  background: #f3f4f6;
-}
-
-.topo {
-  background: var(--oficina-grafite);
-  border-bottom: 3px solid var(--oficina-laranja);
+  background: var(--oficina-tela);
 }
 
 .text-accent {
@@ -36,16 +55,6 @@ body {
   --bs-btn-active-border-color: var(--oficina-laranja);
 }
 
-.nav-tabs .nav-link {
-  color: #495057;
-}
-
-.nav-tabs .nav-link.active {
-  color: var(--oficina-laranja-escuro);
-  font-weight: 600;
-  border-top: 3px solid var(--oficina-laranja);
-}
-
 .busca {
   max-width: 360px;
 }
@@ -65,6 +74,543 @@ body {
 :focus-visible {
   outline: 3px solid var(--oficina-laranja);
   outline-offset: 2px;
+}
+
+/* ================================================================ app shell
+   Menu lateral fixo à esquerda + área de trabalho rolando ao lado. */
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+.barra-lateral {
+  flex: 0 0 var(--barra-largura);
+  width: var(--barra-largura);
+  background: var(--oficina-grafite-fundo);
+  color: #cbd3da;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  transition: width .18s ease, flex-basis .18s ease;
+  z-index: 1040;
+}
+
+.bl-marca {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: 1.1rem 1.25rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  white-space: nowrap;
+}
+
+.bl-marca .bi {
+  font-size: 1.6rem;
+  color: var(--oficina-laranja);
+  flex: 0 0 auto;
+}
+
+.bl-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: .75rem 0;
+}
+
+.bl-grupo {
+  margin: 1rem 1.25rem .35rem;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: #6b7681;
+}
+
+.bl-item {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+  padding: .62rem 1.25rem;
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  color: #cbd3da;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.bl-item .bi {
+  font-size: 1.05rem;
+  flex: 0 0 1.25rem;
+}
+
+.bl-item:hover {
+  background: var(--oficina-grafite-claro);
+  color: #fff;
+}
+
+.bl-item.ativo {
+  background: var(--oficina-grafite-claro);
+  border-left-color: var(--oficina-laranja);
+  color: #fff;
+  font-weight: 600;
+}
+
+.bl-recolher {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 1.25rem;
+  background: none;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, .07);
+  color: #8b959e;
+  white-space: nowrap;
+}
+
+.bl-recolher:hover {
+  color: #fff;
+}
+
+/* recolhido: sobra só a coluna de ícones */
+body.recolhido .barra-lateral {
+  flex-basis: var(--barra-recolhida);
+  width: var(--barra-recolhida);
+}
+
+body.recolhido .bl-texto {
+  display: none;
+}
+
+body.recolhido .bl-item,
+body.recolhido .bl-recolher,
+body.recolhido .bl-marca {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+body.recolhido .bl-grupo {
+  height: 1px;
+  margin: .75rem 1rem;
+  background: rgba(255, 255, 255, .08);
+}
+
+/* ---------------------------------------------------------------- área */
+.area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: .75rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid var(--oficina-borda);
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
+.topo-titulo {
+  flex: 1;
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--oficina-grafite);
+}
+
+.btn-menu {
+  display: none;
+  background: none;
+  border: 0;
+  font-size: 1.5rem;
+  color: var(--oficina-grafite);
+  padding: 0 .25rem;
+}
+
+.usuario-chip {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: .3rem .7rem .3rem .3rem;
+  color: var(--oficina-grafite);
+}
+
+.usuario-chip:hover {
+  border-color: var(--oficina-borda);
+  background: #fafafa;
+}
+
+.usuario-avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--oficina-laranja);
+  color: #fff;
+  font-weight: 700;
+  font-size: .85rem;
+  flex: 0 0 auto;
+}
+
+.usuario-dados {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.usuario-nome {
+  font-weight: 600;
+  font-size: .9rem;
+}
+
+.usuario-perfil {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #6c757d;
+}
+
+.conteudo {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+.pagina {
+  display: none;
+}
+
+.pagina.ativa {
+  display: block;
+}
+
+.barra-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* sombra do menu aberto no celular */
+.bl-sombra {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .45);
+  z-index: 1035;
+}
+
+.bl-sombra.visivel {
+  display: block;
+}
+
+/* ================================================================ dashboard */
+.cartao {
+  padding: 1.15rem 1.25rem;
+}
+
+.cartao-titulo {
+  font-size: .82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #6c757d;
+  margin-bottom: 1rem;
+}
+
+.indicador {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border-left: 4px solid var(--os-aberta);
+  height: 100%;
+}
+
+.indicador-icone {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  font-size: 1.35rem;
+  flex: 0 0 auto;
+  background: rgba(216, 123, 70, .14);
+  color: #c06a38;
+}
+
+.indicador-rotulo {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #6c757d;
+}
+
+.indicador-valor {
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--painel-texto);
+}
+
+.indicador-nota {
+  font-size: .75rem;
+  color: #8a9199;
+}
+
+.indicador.verde {
+  border-left-color: var(--os-concluida);
+}
+
+.indicador.verde .indicador-icone {
+  background: rgba(97, 184, 133, .16);
+  color: #4e9c6f;
+}
+
+.indicador.ambar {
+  border-left-color: var(--os-andamento);
+}
+
+.indicador.ambar .indicador-icone {
+  background: rgba(219, 177, 87, .20);
+  color: #b58f3a;
+}
+
+.indicador.grafite {
+  border-left-color: var(--painel-ardosia);
+}
+
+.indicador.grafite .indicador-icone {
+  background: rgba(123, 134, 143, .14);
+  color: #6b757d;
+}
+
+.grafico svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1.1rem;
+  margin-top: .75rem;
+}
+
+.legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .82rem;
+  color: #495057;
+}
+
+.legenda i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.vazio {
+  padding: 2rem 0;
+  text-align: center;
+  color: #8a9199;
+}
+
+/* ================================================================ login
+   Ocupa a tela inteira: metade da esquerda é o mascote, metade da direita é o
+   formulário. Sem cartão flutuante, sem margem sobrando. */
+.tela-login {
+  background: #fff;
+}
+
+.login {
+  display: flex;
+  min-height: 100vh;
+}
+
+.login-foto {
+  flex: 1 1 50%;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: #eef0f2;
+}
+
+/* A foto tem fundo branco. O 'multiply' apaga esse branco contra o cinza do
+   painel, então o cachorro aparece recortado, sem retângulo em volta. */
+.login-foto img {
+  max-width: 100%;
+  max-height: 86vh;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.login-painel {
+  flex: 1 1 50%;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: #fff;
+}
+
+.login-form {
+  width: min(380px, 100%);
+  text-align: center;
+}
+
+.login-titulo {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: #3f4750;
+  margin-bottom: .4rem;
+}
+
+.login-subtitulo {
+  color: #8a9199;
+  font-size: .95rem;
+  line-height: 1.45;
+  margin-bottom: 1.85rem;
+}
+
+.login-campo {
+  height: 48px;
+  margin-bottom: .85rem;
+  border-radius: 8px;
+  border-color: #dfe3e8;
+  text-align: left;
+}
+
+.login-campo::placeholder {
+  color: #b3b9bf;
+}
+
+.login-aviso {
+  margin: -.35rem 0 .5rem;
+  text-align: left;
+  font-size: .82rem;
+  color: #9a6b00;
+}
+
+.login-lembrar {
+  margin: .15rem 0 1.3rem;
+  text-align: left;
+  font-size: .9rem;
+  color: #6c757d;
+}
+
+.login-lembrar .form-check-input:checked {
+  background-color: var(--oficina-laranja);
+  border-color: var(--oficina-laranja);
+}
+
+.login-entrar {
+  width: 100%;
+  height: 48px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.login-esqueci {
+  display: block;
+  width: 100%;
+  margin-top: 1.6rem;
+  padding-top: 1.3rem;
+  border: 0;
+  border-top: 1px solid #edeff1;
+  background: none;
+  color: var(--oficina-laranja);
+  font-size: .9rem;
+}
+
+.login-esqueci:hover {
+  color: var(--oficina-laranja-escuro);
+  text-decoration: underline;
+}
+
+.login-dica {
+  margin: .85rem 0 0;
+  font-size: .82rem;
+  line-height: 1.55;
+  color: #6c757d;
+  text-align: left;
+}
+
+/* ================================================================ telas estreitas */
+@media (max-width: 991.98px) {
+  .barra-lateral {
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+  }
+
+  body.menu-aberto .barra-lateral {
+    transform: translateX(0);
+  }
+
+  .btn-menu {
+    display: block;
+  }
+
+  .conteudo {
+    padding: 1rem;
+  }
+
+  .topo {
+    padding: .75rem 1rem;
+  }
+
+  .usuario-dados {
+    display: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  /* No celular a foto vira uma faixa no topo e o formulário fica embaixo. */
+  .login {
+    flex-direction: column;
+  }
+
+  .login-foto {
+    flex: 0 0 30vh;
+    padding: 1rem;
+  }
+
+  .login-foto img {
+    max-height: 26vh;
+  }
+
+  .login-painel {
+    padding: 1.75rem 1.5rem 2.5rem;
+  }
+
+  .busca {
+    max-width: none;
+  }
+
+  .barra-acoes > * {
+    width: 100%;
+  }
 }
 
 /* ---------------------------------------------------------------- impressão

@@ -104,3 +104,34 @@ CREATE TABLE IF NOT EXISTS item_os (
   CONSTRAINT fk_item_os_servico  FOREIGN KEY (servico_id) REFERENCES servico (id)
     ON DELETE RESTRICT ON UPDATE CASCADE                     -- serviço já usado em OS não pode ser excluído
 ) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+--  USUARIO: quem pode entrar no sistema.
+--
+--  A senha NUNCA é gravada: a coluna guarda o resultado de um PBKDF2 com
+--  sal aleatório, no formato "pbkdf2_sha256$iteracoes$sal$hash"
+--  (ver security/Senhas.java). O CHECK abaixo é a última linha de defesa:
+--  o próprio banco recusa qualquer INSERT que tente gravar senha em texto
+--  puro, mesmo vindo de fora da aplicação.
+--
+--  As colunas de bloqueio implementam a defesa contra força bruta:
+--  a cada erro tentativas_falhas sobe; ao estourar o limite, bloqueado_ate
+--  segura novas tentativas daquela conta por alguns minutos.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS usuario (
+  id                 INT UNSIGNED        NOT NULL AUTO_INCREMENT,
+  nome               VARCHAR(100)        NOT NULL,
+  email              VARCHAR(120)        NOT NULL,                -- login
+  senha_hash         VARCHAR(255)        NOT NULL,                -- PBKDF2, nunca a senha
+  perfil             ENUM('ADMIN', 'ATENDENTE') NOT NULL DEFAULT 'ATENDENTE',
+  ativo              TINYINT(1)          NOT NULL DEFAULT 1,      -- inativo não consegue entrar
+  tentativas_falhas  TINYINT UNSIGNED    NOT NULL DEFAULT 0,
+  bloqueado_ate      DATETIME            NULL,
+  ultimo_acesso      DATETIME            NULL,
+  criado_em          DATETIME            NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT pk_usuario         PRIMARY KEY (id),
+  CONSTRAINT uq_usuario_email   UNIQUE (email),
+  CONSTRAINT ck_usuario_email   CHECK (email LIKE '_%@_%._%'),
+  CONSTRAINT ck_usuario_senha   CHECK (senha_hash LIKE 'pbkdf2\_sha256$%'),
+  CONSTRAINT ck_usuario_nome    CHECK (CHAR_LENGTH(nome) >= 2)
+) ENGINE=InnoDB;

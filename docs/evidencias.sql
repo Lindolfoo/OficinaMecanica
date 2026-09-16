@@ -23,7 +23,8 @@ SELECT 'cliente' AS tabela, COUNT(*) AS linhas FROM cliente
 UNION ALL SELECT 'veiculo',       COUNT(*) FROM veiculo
 UNION ALL SELECT 'servico',       COUNT(*) FROM servico
 UNION ALL SELECT 'ordem_servico', COUNT(*) FROM ordem_servico
-UNION ALL SELECT 'item_os',       COUNT(*) FROM item_os;
+UNION ALL SELECT 'item_os',       COUNT(*) FROM item_os
+UNION ALL SELECT 'usuario',       COUNT(*) FROM usuario;
 
 -- ---------------------------------------------------------------------
 --  2. Clientes e seus veículos (relacionamento 1:N)
@@ -87,6 +88,15 @@ SELECT TABLE_NAME AS tabela, CONSTRAINT_NAME AS restricao, CONSTRAINT_TYPE AS ti
  ORDER BY TABLE_NAME, CONSTRAINT_TYPE, CONSTRAINT_NAME;
 
 -- ---------------------------------------------------------------------
+--  7b. Total de restrições por tipo (o número que o README cita)
+-- ---------------------------------------------------------------------
+SELECT CONSTRAINT_TYPE AS tipo, COUNT(*) AS quantidade
+  FROM information_schema.TABLE_CONSTRAINTS
+ WHERE CONSTRAINT_SCHEMA = 'oficina'
+ GROUP BY CONSTRAINT_TYPE
+ ORDER BY quantidade DESC;
+
+-- ---------------------------------------------------------------------
 --  8. As chaves estrangeiras e suas políticas de integridade
 --     (é o que comprova o RESTRICT/CASCADE descrito no DER)
 -- ---------------------------------------------------------------------
@@ -100,15 +110,42 @@ SELECT rc.TABLE_NAME AS tabela, rc.CONSTRAINT_NAME AS fk, k.COLUMN_NAME AS colun
  WHERE rc.CONSTRAINT_SCHEMA = 'oficina'
  ORDER BY rc.TABLE_NAME;
 
+-- ---------------------------------------------------------------------
+--  9. Nenhuma senha em texto puro: a coluna guarda só o hash PBKDF2
+--     (o prefixo "pbkdf2_sha256$" é exigido por um CHECK da tabela)
+-- ---------------------------------------------------------------------
+SELECT id, nome, email, perfil, ativo,
+       LEFT(senha_hash, 30) AS inicio_do_hash,
+       CHAR_LENGTH(senha_hash) AS tamanho
+  FROM usuario
+ ORDER BY id;
+
 -- =====================================================================
---  9. PROVA DE INTEGRIDADE REFERENCIAL
+--  10. PROVAS DE INTEGRIDADE — comandos que FALHAM de propósito
 --
---  Rode SEPARADAMENTE — este comando FALHA de propósito, e é justamente
---  o erro que serve de evidência (a FK impede a exclusão):
+--  Rode SEPARADAMENTE: o erro é justamente a evidência. Tire o print
+--  da mensagem de erro.
 --
---      DELETE FROM cliente WHERE id = 1;
+--  a) A FK impede excluir um cliente que ainda tem veículo:
 --
---  Saída esperada:
---      ERROR 1451 (23000): Cannot delete or update a parent row:
---      a foreign key constraint fails (`oficina`.`veiculo`, ...)
+--         DELETE FROM cliente WHERE id = 1;
+--
+--     Saída esperada:
+--         ERROR 1451 (23000): Cannot delete or update a parent row:
+--         a foreign key constraint fails (`oficina`.`veiculo`, ...)
+--
+--  b) O CHECK impede gravar senha em texto puro, mesmo por fora da aplicação:
+--
+--         INSERT INTO usuario (nome, email, senha_hash, perfil)
+--         VALUES ('Invasor', 'x@y.com', '123456', 'ADMIN');
+--
+--     Saída esperada:
+--         ERROR 3819 (HY000): Check constraint 'ck_usuario_senha' is violated.
+--
+--  c) O CHECK do CPF recusa um valor fora do formato:
+--
+--         INSERT INTO cliente (nome, cpf) VALUES ('Teste', 'abc');
+--
+--     Saída esperada:
+--         ERROR 3819 (HY000): Check constraint 'ck_cliente_cpf' is violated.
 -- =====================================================================
