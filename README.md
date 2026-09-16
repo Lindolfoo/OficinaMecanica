@@ -418,21 +418,23 @@ Host `127.0.0.1`, porta `3306`, usuário `root`, senha `root`, schema `oficina`.
 
 ### Persistência no banco
 
-Evidências colhidas no MySQL, com as consultas de
-[`docs/evidencias.sql`](docs/evidencias.sql):
+Cada imagem abaixo mostra **o comando executado e a saída real do cliente
+`mysql`**. Todas as consultas estão em [`docs/evidencias.sql`](docs/evidencias.sql)
+e podem ser reproduzidas por quem avalia, com um comando só (veja
+[Como reproduzir](#como-reproduzir-as-evidências)).
 
 | | |
 |---|---|
 | ![Estrutura](docs/prints/12-banco-estrutura.png) | ![Cliente e veículo](docs/prints/13-banco-cliente-veiculo.png) |
-| As tabelas do schema `oficina` | O 1:N entre cliente e veículo |
+| As 6 tabelas em InnoDB/utf8mb4 e a contagem real de linhas | O 1:N entre cliente e veículo |
 | ![Clientes gravados](docs/prints/19-banco-clientes-gravados.png) | ![Cliente excluído](docs/prints/21-banco-cliente-excluido.png) |
-| Os dados criados pela tela, persistidos | Depois do DELETE, o registro some do banco |
+| Os dados criados pela tela, persistidos na tabela | Depois do DELETE, o registro some do banco |
 | ![Total calculado](docs/prints/14-banco-os-total-calculado.png) | ![Itens da OS](docs/prints/15-banco-itens-da-os.png) |
-| JOIN duplo e total por `SUM` — não há coluna de total | Os itens gravados pela transação |
+| JOIN duplo e total por `SUM` — não existe coluna de total | Os itens gravados pela transação (associativa N:N) |
 | ![Constraints](docs/prints/16-banco-constraints.png) | ![Políticas das FKs](docs/prints/17-banco-fk-politicas.png) |
-| As restrições que o banco tem | `RESTRICT`/`CASCADE` de cada FK |
-| ![FK bloqueia](docs/prints/18-banco-fk-bloqueia-exclusao.png) | |
-| `ERROR 1451` — a FK recusa a exclusão | |
+| As 24 restrições: o total por tipo e cada uma nomeada | `RESTRICT`/`CASCADE` de cada chave estrangeira |
+| ![FK bloqueia](docs/prints/18-banco-fk-bloqueia-exclusao.png) | ![Senha em hash](docs/prints/27-banco-senha-em-hash.png) |
+| `ERROR 1451` — a FK recusa a exclusão e nomeia a constraint | A senha só existe como hash PBKDF2, e o `CHECK` recusa texto puro (`ERROR 3819`) |
 
 Todos os prints estão em [`docs/prints/`](docs/prints/).
 
