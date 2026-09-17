@@ -70,7 +70,7 @@ Se o professor perguntar "onde está o controle de transação?", é aqui.
 | `static/index.html` | Menu lateral + 6 páginas (Dashboard, Clientes, Veículos, Serviços, OS, Usuários) e os modais. |
 | `static/js/app.js` | Um bloco por módulo, sempre: `carregar` → `abrirModal` → `submit` → `excluir`. No topo ficam a sessão, o token CSRF e a navegação. |
 | `static/css/style.css` | Identidade visual, menu lateral, dashboard e a via impressa; o resto é Bootstrap. |
-| `static/img/beagle.png` | Mascote da tela de login. Fica no classpath como os demais estáticos. |
+| `static/img/beagle-mecanico.jpg` | Mascote da tela de login. Fica no classpath como os demais estáticos. |
 | `static/vendor/` | jQuery e Bootstrap locais — o projeto roda sem internet. |
 
 Os gráficos do dashboard (rosca e barras) são **SVG montado à mão** em
