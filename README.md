@@ -3,6 +3,10 @@
 Aplicação web completa integrada a um SGBD relacional, desenvolvida para a
 atividade NP1 da disciplina de **Banco de Dados**.
 
+> **Requisito para compilar: JDK 21 ou mais novo.** Confira com `java -version`.
+> Se precisar instalar, use o [Eclipse Temurin 21](https://adoptium.net/temurin/releases/?version=21).
+> Passo a passo completo no [guia de execução](#3-guia-de-instalação-e-execução).
+
 ## Identificação
 
 | | |
@@ -83,7 +87,7 @@ Cada regra aponta onde ela é realmente garantida — quase sempre no banco.
 | RN04 | Cliente com veículo cadastrado não pode ser excluído | `ON DELETE RESTRICT` |
 | RN05 | Toda OS é aberta para um veículo já cadastrado | FK `ordem_servico.veiculo_id` |
 | RN06 | Veículo com OS registrada não pode ser excluído — o histórico é preservado | `ON DELETE RESTRICT` |
-| RN07 | A OS percorre ABERTA → EM_ANDAMENTO → CONCLUIDA, podendo ser CANCELADA | `ENUM` em `ordem_servico.status` |
+| RN07 | O status da OS só assume um de quatro valores: ABERTA, EM_ANDAMENTO, CONCLUIDA ou CANCELADA. O fluxo usual segue essa ordem, mas a transição entre eles não é restringida | `ENUM` em `ordem_servico.status` + `STATUS_VALIDOS` em `OrdemServicoHandler` |
 | RN08 | A conclusão nunca é anterior à abertura | `CHECK (data_conclusao >= data_abertura)` |
 | RN09 | Ao concluir uma OS a data de conclusão é preenchida; ao reabrir, volta a nulo | `OrdemServicoDao.atualizar` |
 | RN10 | Uma OS é composta por itens: serviços e/ou peças, cada um com quantidade | Associativa `item_os` (N:N) |
@@ -177,7 +181,12 @@ erDiagram
     }
 ```
 
-Em texto, para quem visualizar fora do GitHub:
+O mesmo diagrama como imagem, com todas as colunas — para quem abrir o
+arquivo fora do GitHub, onde o Mermaid não é desenhado:
+
+![DER em imagem](docs/der.png)
+
+Em texto:
 
     CLIENTE  1 ────< N  VEICULO  1 ────< N  ORDEM_SERVICO
                                                   │ 1

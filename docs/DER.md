@@ -74,6 +74,10 @@ erDiagram
     }
 ```
 
+A mesma figura em imagem, para leitura fora do GitHub:
+
+![DER em imagem](der.png)
+
 > Notação pé-de-galinha: `||` = exatamente um · `o{` = zero ou muitos.
 
 `USUARIO` aparece solta no diagrama de propósito: ela não faz parte do domínio
