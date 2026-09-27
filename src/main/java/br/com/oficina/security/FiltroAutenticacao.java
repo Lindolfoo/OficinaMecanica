@@ -27,7 +27,11 @@ import java.util.Set;
 public final class FiltroAutenticacao extends Filter {
 
     /** Rotas de API liberadas: são justamente as que servem para entrar. */
-    private static final Set<String> API_PUBLICA = Set.of("/api/auth/login", "/api/auth/sessao");
+    private static final Set<String> API_PUBLICA = Set.of(
+            "/api/auth/login",
+            "/api/auth/sessao",
+            "/api/auth/estado",        // diz se o sistema ainda não tem administrador
+            "/api/auth/configurar");   // cria o primeiro administrador (o DAO recusa o segundo)
 
     /** Páginas e arquivos liberados: a tela de login e o que ela precisa para se desenhar. */
     private static final Set<String> PAGINA_PUBLICA = Set.of("/login.html", "/favicon.ico");

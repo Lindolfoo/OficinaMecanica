@@ -44,7 +44,7 @@ public final class App {
                         + " " + c.getMetaData().getDatabaseProductVersion());
                 System.out.println("Arquivo: " + Database.arquivo());
             }
-            criarAdminSeNecessario();
+            avisarPrimeiroAcesso();
         } catch (SQLException e) {
             System.err.println("ERRO: não foi possível abrir o banco -> " + e.getMessage());
             System.err.println("O banco é o arquivo " + Database.arquivo()
@@ -88,19 +88,14 @@ public final class App {
     }
 
     /**
-     * Na primeira execução a tabela usuario está vazia e ninguém conseguiria
-     * entrar. Criamos então o administrador padrão — e avisamos, bem alto, que
-     * a senha precisa ser trocada.
+     * Não existe senha padrão: se ainda não há conta, quem define o
+     * administrador é o usuário, na própria tela de entrada.
      */
-    private static void criarAdminSeNecessario() throws SQLException {
-        boolean criou = new UsuarioDao().garantirAdminPadrao(
-                Config.adminNome(), Config.adminEmail(), Config.adminSenha());
-        if (criou) {
+    private static void avisarPrimeiroAcesso() throws SQLException {
+        if (new UsuarioDao().contar() == 0) {
             System.out.println();
-            System.out.println("  Primeiro acesso — administrador criado:");
-            System.out.println("      e-mail: " + Config.adminEmail());
-            System.out.println("      senha:  " + Config.adminSenha());
-            System.out.println("  Troque essa senha no menu do usuário assim que entrar.");
+            System.out.println("  Primeiro acesso: abra o sistema no navegador para criar");
+            System.out.println("  o administrador (nome, e-mail e senha de sua escolha).");
             System.out.println();
         }
     }

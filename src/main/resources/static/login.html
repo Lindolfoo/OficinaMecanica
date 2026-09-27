@@ -21,12 +21,19 @@
   <section class="login-painel">
     <form id="formLogin" class="login-form" novalidate>
 
-      <h1 class="login-titulo">Bem-Vindo ao Sistema</h1>
-      <p class="login-subtitulo">Sistema de Gerenciamento de Oficina Mecânica</p>
+      <h1 class="login-titulo" id="tituloLogin">Bem-Vindo ao Sistema</h1>
+      <p class="login-subtitulo" id="subtituloLogin">Sistema de Gerenciamento de Oficina Mecânica</p>
 
       <div class="alert alert-danger d-flex align-items-center gap-2 text-start d-none" id="erroLogin" role="alert">
         <i class="bi bi-exclamation-triangle-fill"></i>
         <span id="erroLoginTexto"></span>
+      </div>
+
+      <!-- Só aparece no primeiro acesso, quando ainda não existe nenhuma conta. -->
+      <div id="blocoPrimeiroAcesso" class="d-none">
+        <label for="nome" class="visually-hidden">Seu nome</label>
+        <input type="text" id="nome" class="form-control login-campo"
+               placeholder="Seu nome completo" autocomplete="name" maxlength="100">
       </div>
 
       <label for="email" class="visually-hidden">E-mail</label>
@@ -37,11 +44,18 @@
       <input type="password" id="senha" class="form-control login-campo"
              placeholder="Sua senha" required autocomplete="current-password">
 
+      <div id="blocoConfirmaSenha" class="d-none">
+        <label for="confirmaSenha" class="visually-hidden">Repita a senha</label>
+        <input type="password" id="confirmaSenha" class="form-control login-campo"
+               placeholder="Repita a senha" autocomplete="new-password">
+        <p class="login-dica">Mínimo de 8 caracteres, com pelo menos uma letra e um número.</p>
+      </div>
+
       <p class="login-aviso d-none" id="avisoCapsLock">
         <i class="bi bi-capslock"></i> Caps Lock está ligado.
       </p>
 
-      <div class="form-check login-lembrar">
+      <div class="form-check login-lembrar" id="blocoManter">
         <input class="form-check-input" type="checkbox" id="manterConectado">
         <label class="form-check-label" for="manterConectado">Manter a senha</label>
       </div>
@@ -52,6 +66,13 @@
       </button>
 
       <button type="button" class="login-esqueci" id="btnEsqueci">Esqueceu a sua senha?</button>
+
+      <p class="login-dica d-none" id="avisoConfiguracao">
+        <i class="bi bi-shield-lock"></i>
+        Esta é a primeira execução: o sistema ainda não tem nenhuma conta.
+        A conta criada agora será o <strong>administrador</strong>, e esta tela
+        deixa de oferecer isso assim que ela existir.
+      </p>
 
       <p class="login-dica d-none" id="dicaSenha">
         Este sistema não envia e-mail de recuperação. Peça a um usuário

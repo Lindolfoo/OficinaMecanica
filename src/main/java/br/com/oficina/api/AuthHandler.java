@@ -36,14 +36,21 @@ public class AuthHandler extends BaseHandler {
 
     @Override
     protected void get(HttpExchange ex) throws Exception {
-        if (!rota(ex).equals("sessao")) {
-            throw new ApiException(404, "Rota não encontrada");
+        switch (rota(ex)) {
+            case "sessao" -> {
+                Sessoes.Sessao s = (Sessoes.Sessao) ex.getAttribute(FiltroAutenticacao.ATRIBUTO_SESSAO);
+                if (s == null) {
+                    throw new ApiException(401, "Ninguém autenticado");
+                }
+                HttpUtil.sendJson(ex, 200, corpoDaSessao(s));
+            }
+            // Rota aberta: a tela de login precisa saber se deve pedir login
+            // ou oferecer a criação do primeiro administrador. Só informa um
+            // sim/não, nunca dados de conta.
+            case "estado" -> HttpUtil.sendJson(ex, 200,
+                    Json.obj("precisaConfigurar", dao.contar() == 0));
+            default -> throw new ApiException(404, "Rota não encontrada");
         }
-        Sessoes.Sessao s = (Sessoes.Sessao) ex.getAttribute(FiltroAutenticacao.ATRIBUTO_SESSAO);
-        if (s == null) {
-            throw new ApiException(401, "Ninguém autenticado");
-        }
-        HttpUtil.sendJson(ex, 200, corpoDaSessao(s));
     }
 
     @Override
@@ -52,8 +59,50 @@ public class AuthHandler extends BaseHandler {
             case "login" -> login(ex);
             case "logout" -> logout(ex);
             case "senha" -> trocarPropriaSenha(ex);
+            case "configurar" -> configurarPrimeiroAcesso(ex);
             default -> throw new ApiException(404, "Rota não encontrada");
         }
+    }
+
+    // ------------------------------------------------------------------ primeiro acesso
+
+    /**
+     * Cria o administrador na primeira execução.
+     *
+     * Antes existia uma senha padrão no config.properties. Num programa
+     * instalado isso significaria a MESMA senha conhecida em toda instalação,
+     * então quem define é o usuário, aqui, uma única vez. O DAO recusa se já
+     * houver qualquer conta, de modo que esta rota deixa de funcionar assim
+     * que o sistema tem dono.
+     */
+    private void configurarPrimeiroAcesso(HttpExchange ex) throws Exception {
+        Map<String, String> f = HttpUtil.readForm(ex);
+        String nome = f.getOrDefault("nome", "").trim();
+        String email = f.getOrDefault("email", "").trim().toLowerCase();
+        String senha = f.getOrDefault("senha", "");
+
+        if (dao.contar() > 0) {
+            throw new ApiException(409, "O sistema já tem um administrador. Entre com a sua conta.");
+        }
+        if (nome.length() < 2 || nome.length() > 100) {
+            throw new ApiException(400, "Nome deve ter entre 2 e 100 caracteres");
+        }
+        if (email.length() > 120 || !Validators.emailValido(email)) {
+            throw new ApiException(400, "E-mail inválido");
+        }
+        if (!Validators.senhaForte(senha)) {
+            throw new ApiException(400, Validators.REGRA_DA_SENHA);
+        }
+
+        Usuario criado = dao.criarPrimeiroAdmin(nome, email, senha)
+                .orElseThrow(() -> new ApiException(409,
+                        "O sistema já tem um administrador. Entre com a sua conta."));
+
+        dao.registrarAcertoDeSenha(criado.id());
+        Sessoes.Sessao s = Sessoes.criar(criado, false);
+        Sessoes.enviarCookie(ex, s);
+        System.out.println("[auth] primeiro acesso: administrador " + email + " criado");
+        HttpUtil.sendJson(ex, 201, corpoDaSessao(s));
     }
 
     // ------------------------------------------------------------------ entrar

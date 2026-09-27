@@ -109,16 +109,4 @@ public final class Config {
         return Boolean.parseBoolean(get("auth.cookieSeguro", "COOKIE_SEGURO", "false"));
     }
 
-    /** Dados do administrador criado automaticamente na primeira execução. */
-    public static String adminNome() {
-        return get("auth.adminNome", "ADMIN_NOME", "Administrador");
-    }
-
-    public static String adminEmail() {
-        return get("auth.adminEmail", "ADMIN_EMAIL", "admin@oficina.local");
-    }
-
-    public static String adminSenha() {
-        return get("auth.adminSenha", "ADMIN_SENHA", "oficina2026");
-    }
 }

@@ -183,17 +183,47 @@ public class UsuarioDao {
     }
 
     /**
-     * Cria o administrador inicial se a tabela estiver vazia — sem isso não
-     * haveria como entrar no sistema na primeira execução. Devolve true se
-     * criou, para a App avisar no console que a senha padrão precisa ser trocada.
+     * Cria o PRIMEIRO administrador, e só se não houver nenhuma conta ainda.
+     *
+     * A checagem e a inserção acontecem na mesma transação de propósito: sem
+     * isso, dois pedidos simultâneos poderiam passar os dois pela verificação
+     * e criar dois administradores. Devolve vazio quando já existe alguém —
+     * é assim que a API responde 409 a uma segunda tentativa.
      */
-    public boolean garantirAdminPadrao(String nome, String email, String senha) throws SQLException {
-        if (contar() > 0) {
-            return false;
+    public Optional<Usuario> criarPrimeiroAdmin(String nome, String email, String senha) throws SQLException {
+        try (Connection c = Database.getConnection()) {
+            c.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*) FROM usuario");
+                     ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    if (rs.getInt(1) > 0) {
+                        c.rollback();
+                        return Optional.empty();
+                    }
+                }
+                long id;
+                try (PreparedStatement ps = c.prepareStatement(
+                        "INSERT INTO usuario (nome, email, senha_hash, perfil, ativo) VALUES (?, ?, ?, 'ADMIN', 1)",
+                        Statement.RETURN_GENERATED_KEYS)) {
+                    ps.setString(1, nome);
+                    ps.setString(2, email.trim().toLowerCase());
+                    ps.setString(3, Senhas.gerarHash(senha));
+                    ps.executeUpdate();
+                    try (ResultSet chaves = ps.getGeneratedKeys()) {
+                        chaves.next();
+                        id = chaves.getLong(1);
+                    }
+                }
+                c.commit();
+                return buscarPorId(id);
+            } catch (SQLException e) {
+                c.rollback();
+                throw e;
+            } finally {
+                c.setAutoCommit(true);
+            }
         }
-        inserir(new Usuario(null, nome, email.trim().toLowerCase(), null, Usuario.ADMIN, true,
-                0, null, null, null), senha);
-        return true;
     }
 
     private static Usuario mapear(ResultSet rs) throws SQLException {
