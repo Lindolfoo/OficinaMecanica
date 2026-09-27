@@ -16,6 +16,11 @@ on:
     tags: ['v*']            # a cada versão publicada
   workflow_dispatch:        # ou quando você mandar, pelo botão na aba Actions
 
+# Necessário para o passo que anexa o .exe à Release: por padrão o token do
+# Actions pode vir somente-leitura, e a publicação falharia no fim de tudo.
+permissions:
+  contents: write
+
 jobs:
   instalador:
     runs-on: windows-latest
