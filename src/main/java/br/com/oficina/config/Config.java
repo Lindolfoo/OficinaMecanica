@@ -2,6 +2,7 @@ package br.com.oficina.config;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.Properties;
 
 /**
@@ -45,21 +46,50 @@ public final class Config {
         return Integer.parseInt(get("server.port", "PORT", "8080"));
     }
 
+    /**
+     * Pasta onde ficam banco, logs e backups.
+     *
+     * NÃO pode ser a pasta do programa: instalado em C:\Program Files, o
+     * Windows recusa a gravação e o banco não abriria. Cada sistema tem o
+     * seu lugar certo para dado de aplicativo, e é esse que usamos.
+     */
+    public static Path pastaDados() {
+        String configurado = get("db.pasta", "OFICINA_DADOS", "");
+        if (!configurado.isBlank()) {
+            return Path.of(configurado);
+        }
+        String so = System.getProperty("os.name", "").toLowerCase();
+        String casa = System.getProperty("user.home");
+        if (so.contains("win")) {
+            String local = System.getenv("LOCALAPPDATA");
+            return Path.of(local == null || local.isBlank() ? casa : local, "OficinaMecanica");
+        }
+        if (so.contains("mac")) {
+            return Path.of(casa, "Library", "Application Support", "OficinaMecanica");
+        }
+        String xdg = System.getenv("XDG_DATA_HOME");
+        return xdg == null || xdg.isBlank()
+                ? Path.of(casa, ".local", "share", "OficinaMecanica")
+                : Path.of(xdg, "OficinaMecanica");
+    }
+
+    /** Arquivo do banco. Um arquivo só, que é todo o banco de dados. */
+    public static Path arquivoBanco() {
+        return pastaDados().resolve("oficina.db");
+    }
+
     public static String dbUrl() {
-        return get("db.url", "DB_URL",
-                "jdbc:mysql://localhost:3306/oficina?sslMode=DISABLED&allowPublicKeyRetrieval=true&characterEncoding=UTF-8");
-    }
-
-    public static String dbUser() {
-        return get("db.user", "DB_USER", "root");
-    }
-
-    public static String dbPassword() {
-        return get("db.password", "DB_PASSWORD", "root");
+        String url = get("db.url", "DB_URL", "");
+        return url.isBlank() ? "jdbc:sqlite:" + arquivoBanco() : url;
     }
 
     public static boolean dbAutoSchema() {
         return Boolean.parseBoolean(get("db.autoSchema", "DB_AUTO_SCHEMA", "true"));
+    }
+
+    /** Carrega os dados de exemplo quando o banco nasce vazio. */
+    public static boolean dbSeedInicial() {
+        return Boolean.parseBoolean(get("db.seedInicial", "DB_SEED_INICIAL", "true"));
     }
 
     // ------------------------------------------------------------------ autenticação

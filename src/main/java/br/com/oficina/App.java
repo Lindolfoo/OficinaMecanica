@@ -40,14 +40,15 @@ public final class App {
                 System.out.println("Schema verificado (sql/01_schema.sql).");
             }
             try (Connection c = Database.getConnection()) {
-                System.out.println("Conectado ao banco: " + c.getMetaData().getDatabaseProductName()
+                System.out.println("Banco: " + c.getMetaData().getDatabaseProductName()
                         + " " + c.getMetaData().getDatabaseProductVersion());
+                System.out.println("Arquivo: " + Database.arquivo());
             }
             criarAdminSeNecessario();
         } catch (SQLException e) {
-            System.err.println("ERRO: não foi possível conectar ao MySQL -> " + e.getMessage());
-            System.err.println("Verifique se o MySQL está no ar (docker compose up -d) e as credenciais em"
-                    + " src/main/resources/config.properties ou nas variáveis DB_URL / DB_USER / DB_PASSWORD.");
+            System.err.println("ERRO: não foi possível abrir o banco -> " + e.getMessage());
+            System.err.println("O banco é o arquivo " + Database.arquivo()
+                    + ". Verifique se a pasta pode ser gravada, ou informe outra em OFICINA_DADOS.");
             System.exit(1);
         }
 

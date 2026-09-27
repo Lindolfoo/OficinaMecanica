@@ -127,7 +127,7 @@ public class UsuarioDao {
 
     /** Login aceito: zera o contador de erros e carimba o último acesso. */
     public void registrarAcertoDeSenha(long id) throws SQLException {
-        String sql = "UPDATE usuario SET tentativas_falhas = 0, bloqueado_ate = NULL, ultimo_acesso = NOW()"
+        String sql = "UPDATE usuario SET tentativas_falhas = 0, bloqueado_ate = NULL, ultimo_acesso = datetime('now', 'localtime')"
                 + " WHERE id = ?";
         try (Connection c = Database.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
@@ -146,7 +146,7 @@ public class UsuarioDao {
                 UPDATE usuario
                    SET tentativas_falhas = tentativas_falhas + 1,
                        bloqueado_ate = CASE WHEN tentativas_falhas + 1 >= ?
-                                            THEN DATE_ADD(NOW(), INTERVAL ? MINUTE)
+                                            THEN datetime('now', 'localtime', '+' || ? || ' minutes')
                                             ELSE bloqueado_ate END
                  WHERE id = ?
                 """;

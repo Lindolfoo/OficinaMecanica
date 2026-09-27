@@ -3,6 +3,7 @@ package br.com.oficina.dao;
 import br.com.oficina.db.Database;
 import br.com.oficina.model.ItemOs;
 import br.com.oficina.model.OrdemServico;
+import br.com.oficina.util.Dinheiro;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -34,7 +35,7 @@ public class OrdemServicoDao {
             SELECT os.id, os.veiculo_id, v.placa, v.marca, v.modelo, c.nome AS cliente_nome,
                    os.status, os.descricao_problema, os.km_atual,
                    os.data_abertura, os.data_conclusao, os.observacoes,
-                   COALESCE((SELECT SUM(i.quantidade * i.valor_unitario)
+                   COALESCE((SELECT SUM(i.quantidade * i.valor_unitario_centavos)
                                FROM item_os i
                               WHERE i.ordem_servico_id = os.id), 0) AS valor_total
               FROM ordem_servico os
@@ -104,8 +105,8 @@ public class OrdemServicoDao {
     public OrdemServico inserirComItens(OrdemServico os, List<long[]> itens) throws SQLException {
         String sqlOs = "INSERT INTO ordem_servico (veiculo_id, status, descricao_problema, km_atual, observacoes)"
                 + " VALUES (?, ?, ?, ?, ?)";
-        String sqlItem = "INSERT INTO item_os (ordem_servico_id, servico_id, quantidade, valor_unitario)"
-                + " SELECT ?, id, ?, preco FROM servico WHERE id = ? AND ativo = 1";
+        String sqlItem = "INSERT INTO item_os (ordem_servico_id, servico_id, quantidade, valor_unitario_centavos)"
+                + " SELECT ?, id, ?, preco_centavos FROM servico WHERE id = ? AND ativo = 1";
 
         Connection c = null;
         try {
@@ -165,7 +166,7 @@ public class OrdemServicoDao {
         String sql = """
                 UPDATE ordem_servico
                    SET veiculo_id = ?, status = ?, descricao_problema = ?, km_atual = ?, observacoes = ?,
-                       data_conclusao = CASE WHEN ? = 'CONCLUIDA' THEN COALESCE(data_conclusao, NOW()) ELSE NULL END
+                       data_conclusao = CASE WHEN ? = 'CONCLUIDA' THEN COALESCE(data_conclusao, datetime('now', 'localtime')) ELSE NULL END
                  WHERE id = ?
                 """;
         try (Connection c = Database.getConnection();
@@ -194,8 +195,8 @@ public class OrdemServicoDao {
 
     /** Adiciona um item copiando o preço atual do catálogo. */
     public boolean adicionarItem(long ordemId, long servicoId, int quantidade) throws SQLException {
-        String sql = "INSERT INTO item_os (ordem_servico_id, servico_id, quantidade, valor_unitario)"
-                + " SELECT ?, id, ?, preco FROM servico WHERE id = ? AND ativo = 1";
+        String sql = "INSERT INTO item_os (ordem_servico_id, servico_id, quantidade, valor_unitario_centavos)"
+                + " SELECT ?, id, ?, preco_centavos FROM servico WHERE id = ? AND ativo = 1";
         try (Connection c = Database.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setLong(1, ordemId);
@@ -218,7 +219,7 @@ public class OrdemServicoDao {
     private List<ItemOs> listarItens(Connection c, long ordemId) throws SQLException {
         String sql = """
                 SELECT i.id, i.ordem_servico_id, i.servico_id, s.descricao, s.tipo,
-                       i.quantidade, i.valor_unitario
+                       i.quantidade, i.valor_unitario_centavos
                   FROM item_os i
                   JOIN servico s ON s.id = i.servico_id
                  WHERE i.ordem_servico_id = ?
@@ -236,7 +237,7 @@ public class OrdemServicoDao {
                             rs.getString("descricao"),
                             rs.getString("tipo"),
                             rs.getInt("quantidade"),
-                            rs.getBigDecimal("valor_unitario")));
+                            Dinheiro.deCentavos(rs.getLong("valor_unitario_centavos"))));
                 }
                 return itens;
             }
@@ -256,8 +257,12 @@ public class OrdemServicoDao {
     private static OrdemServico mapear(ResultSet rs, List<ItemOs> itens) throws SQLException {
         Timestamp abertura = rs.getTimestamp("data_abertura");
         Timestamp conclusao = rs.getTimestamp("data_conclusao");
+        // wasNull() responde sobre a ÚLTIMA coluna lida, então tem de ser
+        // consultado aqui, colado no getInt. Consultá-lo depois de ler outras
+        // colunas (como estava) faz a quilometragem nula virar zero.
         int km = rs.getInt("km_atual");
-        BigDecimal total = rs.getBigDecimal("valor_total");
+        Integer kmAtual = rs.wasNull() ? null : km;
+        BigDecimal total = Dinheiro.deCentavos(rs.getLong("valor_total"));
 
         return new OrdemServico(
                 rs.getLong("id"),
@@ -267,11 +272,11 @@ public class OrdemServicoDao {
                 rs.getString("cliente_nome"),
                 rs.getString("status"),
                 rs.getString("descricao_problema"),
-                rs.wasNull() ? null : km,
+                kmAtual,
                 abertura == null ? null : abertura.toLocalDateTime(),
                 conclusao == null ? null : conclusao.toLocalDateTime(),
                 rs.getString("observacoes"),
-                total == null ? BigDecimal.ZERO : total,
+                total,
                 itens);
     }
 
@@ -284,7 +289,7 @@ public class OrdemServicoDao {
         String sql = """
                 SELECT os.status,
                        COUNT(DISTINCT os.id) AS qtd,
-                       COALESCE(SUM(i.quantidade * i.valor_unitario), 0) AS total
+                       COALESCE(SUM(i.quantidade * i.valor_unitario_centavos), 0) AS total
                   FROM ordem_servico os
                   LEFT JOIN item_os i ON i.ordem_servico_id = os.id
                  GROUP BY os.status
@@ -295,7 +300,8 @@ public class OrdemServicoDao {
              ResultSet rs = ps.executeQuery()) {
             List<Faturamento> lista = new ArrayList<>();
             while (rs.next()) {
-                lista.add(new Faturamento(rs.getString("status"), rs.getLong("qtd"), rs.getBigDecimal("total")));
+                lista.add(new Faturamento(rs.getString("status"), rs.getLong("qtd"),
+                        Dinheiro.deCentavos(rs.getLong("total"))));
             }
             return lista;
         }

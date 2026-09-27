@@ -5,7 +5,6 @@ import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.sql.SQLIntegrityConstraintViolationException;
 
 /**
  * Classe base dos handlers da API. Roteia pelo método HTTP e converte exceções
@@ -26,17 +25,25 @@ public abstract class BaseHandler implements HttpHandler {
             }
         } catch (ApiException e) {
             HttpUtil.sendJson(ex, e.status(), Json.obj("erro", e.getMessage()));
-        } catch (SQLIntegrityConstraintViolationException e) {
-            // UNIQUE / FOREIGN KEY: a regra está no banco, aqui só traduzimos a mensagem
-            HttpUtil.sendJson(ex, 409, Json.obj("erro", traduzirViolacao(e)));
         } catch (SQLException e) {
             // O detalhe técnico fica no log do servidor. Para o navegador vai uma
             // mensagem neutra: o texto do driver descreve o schema e não deve sair daqui.
             System.err.println("[SQL] " + e.getMessage());
             String msg = e.getMessage() == null ? "" : e.getMessage();
-            if (msg.contains("Check constraint") || (msg.contains("CONSTRAINT") && msg.contains("failed"))) {
-                HttpUtil.sendJson(ex, 400, Json.obj("erro",
-                        "Valor rejeitado por uma regra do banco de dados."));
+
+            if (msg.contains("SQLITE_CONSTRAINT_UNIQUE") || msg.contains("UNIQUE constraint failed")) {
+                HttpUtil.sendJson(ex, 409, Json.obj("erro",
+                        "Já existe um registro com esse valor (campo único duplicado, ex.: CPF ou placa)."));
+            } else if (msg.contains("SQLITE_CONSTRAINT_FOREIGNKEY") || msg.contains("FOREIGN KEY constraint failed")) {
+                // O SQLite não diz de que lado a FK falhou, então a mensagem cobre os dois.
+                HttpUtil.sendJson(ex, 409, Json.obj("erro",
+                        "Operação bloqueada por vínculo entre registros: "
+                        + "ou existem registros dependentes (veículos, ordens de serviço), "
+                        + "ou o registro relacionado informado não existe."));
+            } else if (msg.contains("SQLITE_CONSTRAINT_CHECK") || msg.contains("CHECK constraint failed")) {
+                HttpUtil.sendJson(ex, 400, Json.obj("erro", traduzirCheck(msg)));
+            } else if (msg.contains("SQLITE_CONSTRAINT_NOTNULL") || msg.contains("NOT NULL constraint failed")) {
+                HttpUtil.sendJson(ex, 400, Json.obj("erro", "Campo obrigatório não informado."));
             } else {
                 HttpUtil.sendJson(ex, 500, Json.obj("erro",
                         "Erro ao acessar o banco de dados. Verifique o log do servidor."));
@@ -63,17 +70,36 @@ public abstract class BaseHandler implements HttpHandler {
         throw new ApiException(405, "Método não permitido");
     }
 
-    private static String traduzirViolacao(SQLIntegrityConstraintViolationException e) {
-        String m = e.getMessage() == null ? "" : e.getMessage();
-        if (m.contains("Duplicate entry")) {
-            return "Já existe um registro com esse valor (campo único duplicado, ex.: CPF ou placa).";
+    /**
+     * O SQLite informa o NOME da restrição que falhou ("CHECK constraint failed:
+     * ck_cliente_cpf"). Como demos nome a todas elas no DDL, dá para devolver
+     * uma mensagem que o usuário entende, sem expor o texto do banco.
+     */
+    private static String traduzirCheck(String msg) {
+        if (msg.contains("ck_cliente_cpf")) {
+            return "CPF inválido: informe os 11 dígitos.";
         }
-        if (m.contains("Cannot delete or update a parent row")) {
-            return "Não é possível excluir: existem registros vinculados (ex.: veículos ou ordens de serviço).";
+        if (msg.contains("ck_veiculo_ano")) {
+            return "Ano do veículo deve estar entre 1950 e 2100.";
         }
-        if (m.contains("Cannot add or update a child row")) {
-            return "Registro relacionado não existe (ex.: cliente, veículo ou serviço inválido).";
+        if (msg.contains("ck_servico_preco") || msg.contains("ck_item_os_valor")) {
+            return "O valor não pode ser negativo.";
         }
-        return "Violação de integridade: " + m;
+        if (msg.contains("ck_item_os_qtd")) {
+            return "A quantidade deve ser maior que zero.";
+        }
+        if (msg.contains("ck_os_status") || msg.contains("ck_servico_tipo") || msg.contains("ck_usuario_perfil")) {
+            return "Valor fora das opções permitidas.";
+        }
+        if (msg.contains("ck_os_conclusao")) {
+            return "A data de conclusão não pode ser anterior à de abertura.";
+        }
+        if (msg.contains("ck_usuario_senha")) {
+            return "A senha precisa ser gravada com hash (erro interno de segurança).";
+        }
+        if (msg.contains("ck_usuario_email")) {
+            return "E-mail inválido.";
+        }
+        return "Valor rejeitado por uma regra do banco de dados.";
     }
 }

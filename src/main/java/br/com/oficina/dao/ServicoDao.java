@@ -2,6 +2,7 @@ package br.com.oficina.dao;
 
 import br.com.oficina.db.Database;
 import br.com.oficina.model.Servico;
+import br.com.oficina.util.Dinheiro;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -16,7 +17,7 @@ import java.util.Optional;
 /** CRUD da tabela SERVICO. */
 public class ServicoDao {
 
-    private static final String COLUNAS = "id, descricao, tipo, preco, ativo";
+    private static final String COLUNAS = "id, descricao, tipo, preco_centavos, ativo";
 
     /** READ (lista). 'apenasAtivos' é usado ao montar uma OS. */
     public List<Servico> listar(String busca, boolean apenasAtivos) throws SQLException {
@@ -53,7 +54,7 @@ public class ServicoDao {
 
     /** CREATE. */
     public Servico inserir(Servico s) throws SQLException {
-        String sql = "INSERT INTO servico (descricao, tipo, preco, ativo) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO servico (descricao, tipo, preco_centavos, ativo) VALUES (?, ?, ?, ?)";
         try (Connection c = Database.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             preencher(ps, s);
@@ -67,7 +68,7 @@ public class ServicoDao {
 
     /** UPDATE. */
     public boolean atualizar(Servico s) throws SQLException {
-        String sql = "UPDATE servico SET descricao = ?, tipo = ?, preco = ?, ativo = ? WHERE id = ?";
+        String sql = "UPDATE servico SET descricao = ?, tipo = ?, preco_centavos = ?, ativo = ? WHERE id = ?";
         try (Connection c = Database.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             preencher(ps, s);
@@ -88,12 +89,12 @@ public class ServicoDao {
     private static void preencher(PreparedStatement ps, Servico s) throws SQLException {
         ps.setString(1, s.descricao());
         ps.setString(2, s.tipo());
-        ps.setBigDecimal(3, s.preco());
+        ps.setLong(3, Dinheiro.paraCentavos(s.preco()));   // reais -> centavos
         ps.setBoolean(4, s.ativo());
     }
 
     private static Servico mapear(ResultSet rs) throws SQLException {
-        BigDecimal preco = rs.getBigDecimal("preco");
+        BigDecimal preco = Dinheiro.deCentavos(rs.getLong("preco_centavos"));
         return new Servico(
                 rs.getLong("id"),
                 rs.getString("descricao"),
