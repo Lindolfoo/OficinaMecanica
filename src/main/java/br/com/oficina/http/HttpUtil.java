@@ -37,10 +37,25 @@ public final class HttpUtil {
 
     // ------------------------------------------------------------------ entrada
 
+    /**
+     * Teto para o corpo de uma requisição. Nenhum formulário do sistema chega
+     * perto disso; o limite existe para que um envio gigante não seja carregado
+     * inteiro na memória antes de ser recusado pela validação.
+     */
+    private static final int MAX_CORPO = 1024 * 1024;   // 1 MB
+
     /** Lê o corpo application/x-www-form-urlencoded (o que o jQuery envia por padrão). */
     public static Map<String, String> readForm(HttpExchange ex) throws IOException {
-        String corpo = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-        return parseUrlEncoded(corpo);
+        return parseUrlEncoded(lerCorpo(ex));
+    }
+
+    /** Lê o corpo até o limite. Passou do teto, recusa sem terminar de ler. */
+    private static String lerCorpo(HttpExchange ex) throws IOException {
+        byte[] bytes = ex.getRequestBody().readNBytes(MAX_CORPO + 1);
+        if (bytes.length > MAX_CORPO) {
+            throw new ApiException(413, "Requisição grande demais.");
+        }
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     /**
@@ -49,7 +64,7 @@ public final class HttpUtil {
      * (servicoId=1&quantidade=2&servicoId=4&quantidade=1).
      */
     public static Map<String, List<String>> readFormMulti(HttpExchange ex) throws IOException {
-        String corpo = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        String corpo = lerCorpo(ex);
         Map<String, List<String>> mapa = new LinkedHashMap<>();
         if (corpo.isBlank()) {
             return mapa;

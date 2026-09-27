@@ -30,12 +30,16 @@ public abstract class BaseHandler implements HttpHandler {
             // UNIQUE / FOREIGN KEY: a regra está no banco, aqui só traduzimos a mensagem
             HttpUtil.sendJson(ex, 409, Json.obj("erro", traduzirViolacao(e)));
         } catch (SQLException e) {
+            // O detalhe técnico fica no log do servidor. Para o navegador vai uma
+            // mensagem neutra: o texto do driver descreve o schema e não deve sair daqui.
             System.err.println("[SQL] " + e.getMessage());
             String msg = e.getMessage() == null ? "" : e.getMessage();
             if (msg.contains("Check constraint") || (msg.contains("CONSTRAINT") && msg.contains("failed"))) {
-                HttpUtil.sendJson(ex, 400, Json.obj("erro", "Valor rejeitado por uma regra do banco (CHECK): " + msg));
+                HttpUtil.sendJson(ex, 400, Json.obj("erro",
+                        "Valor rejeitado por uma regra do banco de dados."));
             } else {
-                HttpUtil.sendJson(ex, 500, Json.obj("erro", "Erro de banco de dados: " + msg));
+                HttpUtil.sendJson(ex, 500, Json.obj("erro",
+                        "Erro ao acessar o banco de dados. Verifique o log do servidor."));
             }
         } catch (Exception e) {
             e.printStackTrace();
