@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -126,5 +127,98 @@ public final class Backup {
     }
 
     public record Info(String nome, Path caminho, long bytes, LocalDateTime quando) {
+    }
+
+    // ------------------------------------------------------------------ restauração
+
+    /** Bilhete deixado para a próxima abertura do programa. */
+    private static Path bilhete() {
+        return Config.pastaDados().resolve("restaurar.txt");
+    }
+
+    /**
+     * Marca uma cópia para ser restaurada na próxima abertura.
+     *
+     * A troca NÃO acontece agora de propósito: o arquivo do banco está aberto,
+     * com conexões ativas e um -wal ao lado. Sobrescrevê-lo em uso é receita de
+     * banco corrompido. Deixamos um bilhete e a troca acontece na subida
+     * seguinte, antes de qualquer conexão existir.
+     */
+    public static void marcarParaRestaurar(String nome) throws SQLException, IOException {
+        Path origem = pasta().resolve(nome);
+        if (!nome.matches("[\\w.\\-]+\\.db") || !Files.isRegularFile(origem)) {
+            throw new IllegalArgumentException("Cópia não encontrada: " + nome);
+        }
+        validar(origem);                       // recusa antes de marcar, não depois
+        Files.writeString(bilhete(), nome, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Confere que o arquivo é mesmo um banco desta aplicação, e íntegro.
+     *
+     * Sem isso, um arquivo truncado ou de outro sistema seria promovido a banco
+     * oficial e o programa não abriria mais — com o banco bom já sobrescrito.
+     */
+    private static void validar(Path arquivo) throws SQLException {
+        try (Connection c = DriverManager.getConnection("jdbc:sqlite:" + arquivo);
+             Statement st = c.createStatement()) {
+            try (ResultSet rs = st.executeQuery("PRAGMA integrity_check")) {
+                if (!rs.next() || !"ok".equalsIgnoreCase(rs.getString(1))) {
+                    throw new SQLException("O arquivo não passou na verificação de integridade.");
+                }
+            }
+            for (String tabela : new String[]{"cliente", "veiculo", "servico",
+                                              "ordem_servico", "item_os", "usuario"}) {
+                try (ResultSet rs = st.executeQuery(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='" + tabela + "'")) {
+                    if (!rs.next() || rs.getInt(1) == 0) {
+                        throw new SQLException("O arquivo não parece um banco deste sistema: "
+                                + "falta a tabela " + tabela + ".");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Executado na subida, ANTES de abrir o banco: se existir bilhete, guarda o
+     * banco atual como rede de segurança e põe a cópia escolhida no lugar.
+     */
+    public static void aplicarRestauracaoPendente() {
+        Path bilhete = bilhete();
+        if (!Files.isRegularFile(bilhete)) {
+            return;
+        }
+        try {
+            String nome = Files.readString(bilhete, java.nio.charset.StandardCharsets.UTF_8).trim();
+            Path origem = pasta().resolve(nome);
+            Path banco = Config.arquivoBanco();
+            validar(origem);
+
+            // O banco que está sendo substituído vira uma cópia, para o caso de
+            // a restauração ter sido um engano.
+            if (Files.exists(banco)) {
+                Files.createDirectories(pasta());
+                Files.copy(banco, pasta().resolve("antes-da-restauracao_"
+                        + LocalDateTime.now().format(CARIMBO) + ".db"),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            // O -wal e o -shm pertencem ao banco antigo: deixá-los seria misturar
+            // transações de um banco com o arquivo de outro.
+            Files.deleteIfExists(Path.of(banco + "-wal"));
+            Files.deleteIfExists(Path.of(banco + "-shm"));
+            Files.copy(origem, banco, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+            System.out.println("Banco restaurado a partir de " + nome + ".");
+        } catch (Exception e) {
+            System.err.println("[restauracao] não foi possível restaurar: " + e.getMessage());
+            System.err.println("[restauracao] o banco atual foi mantido.");
+        } finally {
+            try {
+                Files.deleteIfExists(bilhete);   // não repetir na próxima abertura
+            } catch (IOException e) {
+                System.err.println("[restauracao] bilhete não pôde ser apagado: " + e.getMessage());
+            }
+        }
     }
 }

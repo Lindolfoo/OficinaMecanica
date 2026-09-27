@@ -33,6 +33,25 @@ public class BackupHandler extends BaseHandler {
     @Override
     protected void post(HttpExchange ex) throws Exception {
         Sessoes.Sessao eu = exigirAdmin(ex);
+
+        // POST /api/backup/restaurar — marca a cópia; a troca acontece na
+        // próxima abertura, porque o banco está em uso agora.
+        if (!HttpUtil.pathParts(ex).isEmpty() && HttpUtil.pathParts(ex).get(0).equals("restaurar")) {
+            String nome = HttpUtil.readForm(ex).getOrDefault("arquivo", "");
+            try {
+                Backup.marcarParaRestaurar(nome);
+            } catch (IllegalArgumentException e) {
+                throw new ApiException(400, e.getMessage());
+            } catch (java.sql.SQLException e) {
+                throw new ApiException(400, "Cópia recusada: " + e.getMessage());
+            }
+            System.out.println("[backup] " + eu.email() + " marcou " + nome + " para restauração");
+            HttpUtil.sendJson(ex, 200, Json.obj("mensagem",
+                    "Cópia validada e marcada. Feche o programa e abra de novo para concluir "
+                    + "a restauração. O banco atual será guardado antes da troca."));
+            return;
+        }
+
         Path criado = Backup.fazer();
         System.out.println("[backup] " + eu.email() + " gerou " + criado.getFileName());
         HttpUtil.sendJson(ex, 201, Json.obj(

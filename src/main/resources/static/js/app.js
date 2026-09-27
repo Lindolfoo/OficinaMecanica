@@ -1086,13 +1086,16 @@
     const $tb = $('#tabelaBackups tbody').empty();
     $('#totalBackups').text(d.copias.length + ' cópia(s) guardada(s)');
     if (!d.copias.length) {
-      $tb.append('<tr><td colspan="3" class="vazio">Nenhuma cópia ainda.</td></tr>');
+      $tb.append('<tr><td colspan="4" class="vazio">Nenhuma cópia ainda.</td></tr>');
       return;
     }
     d.copias.forEach(function (c) {
-      $tb.append('<tr><td class="fw-medium">' + esc(c.nome) + '</td>' +
+      $tb.append('<tr data-arquivo="' + esc(c.nome) + '">' +
+                 '<td class="fw-medium">' + esc(c.nome) + '</td>' +
                  '<td class="text-nowrap">' + fmtData(c.quando) + '</td>' +
-                 '<td class="text-end">' + fmtTamanho(c.bytes) + '</td></tr>');
+                 '<td class="text-end">' + fmtTamanho(c.bytes) + '</td>' +
+                 '<td class="text-end"><button class="btn btn-sm btn-outline-secondary btn-restaurar" ' +
+                 'title="Restaurar esta cópia"><i class="bi bi-arrow-counterclockwise"></i></button></td></tr>');
     });
   }
 
@@ -1108,6 +1111,16 @@
       .done(function (d) { toast('Cópia criada: ' + d.arquivo); mostrarBackups(d); })
       .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
       .always(function () { $b.prop('disabled', false); });
+  });
+
+  $('#tabelaBackups').on('click', '.btn-restaurar', function () {
+    const arquivo = $(this).closest('tr').data('arquivo');
+    if (!window.confirm('Restaurar a cópia "' + arquivo + '"?\n\n' +
+        'O banco atual será guardado antes da troca, e a restauração acontece ' +
+        'quando você fechar e abrir o programa de novo.')) return;
+    $.ajax({ url: API + '/backup/restaurar', type: 'POST', data: { arquivo: arquivo } })
+      .done(function (d) { window.alert(d.mensagem); })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
   });
 
   // ------------------------------------------------------------ trocar a própria senha

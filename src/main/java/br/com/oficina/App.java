@@ -52,6 +52,9 @@ public final class App {
 
         // 1) Banco: garante o schema e testa a conexão antes de aceitar requisições
         try {
+            // Antes de qualquer conexão: se ficou uma restauração marcada, é agora
+            // que o arquivo pode ser trocado com segurança.
+            Backup.aplicarRestauracaoPendente();
             if (Config.dbAutoSchema()) {
                 Database.ensureSchema();
                 System.out.println("Schema verificado (sql/01_schema.sql).");
