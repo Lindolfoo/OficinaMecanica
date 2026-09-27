@@ -92,6 +92,18 @@ public final class Config {
         return Boolean.parseBoolean(get("db.seedInicial", "DB_SEED_INICIAL", "true"));
     }
 
+    // ------------------------------------------------------------------ desktop
+
+    /** Abre o navegador sozinho ao iniciar. Desligue para rodar como serviço. */
+    public static boolean appAbrirNavegador() {
+        return Boolean.parseBoolean(get("app.abrirNavegador", "APP_ABRIR_NAVEGADOR", "true"));
+    }
+
+    /** Ícone na área de notificação, com a opção de encerrar. */
+    public static boolean appBandeja() {
+        return Boolean.parseBoolean(get("app.bandeja", "APP_BANDEJA", "true"));
+    }
+
     // ------------------------------------------------------------------ autenticação
 
     /** Minutos de inatividade até a sessão cair sozinha. */
