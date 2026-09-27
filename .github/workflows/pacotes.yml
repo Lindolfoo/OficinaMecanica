@@ -1,0 +1,169 @@
+# Gera os pacotes de instalação para os três sistemas, mais o .jar universal.
+#
+# Por que três jobs e não um: o jpackage NÃO faz compilação cruzada. Ele monta
+# o instalador usando as ferramentas do sistema em que está rodando — WiX no
+# Windows, dpkg no Linux, hdiutil no macOS. Então cada formato precisa nascer
+# na sua própria máquina, e é isso que a matriz abaixo faz, em paralelo.
+#
+# Resultado de cada versão publicada:
+#
+#   Oficina.Mecanica-X.Y.Z.exe          Windows  — instala sem pedir administrador
+#   oficina-mecanica_X.Y.Z_amd64.deb    Ubuntu/Debian
+#   oficina-mecanica-X.Y.Z.rpm          Fedora/openSUSE
+#   Oficina Mecanica-X.Y.Z.dmg          macOS
+#   oficina.jar                         qualquer sistema com Java 21+
+
+name: Pacotes
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ------------------------------------------------------------------ instaladores
+  instalador:
+    name: ${{ matrix.rotulo }}
+    runs-on: ${{ matrix.so }}
+    strategy:
+      fail-fast: false          # um sistema falhar não cancela os outros
+      matrix:
+        include:
+          - so: windows-latest
+            rotulo: Windows (.exe)
+            artefato: instalador-windows
+          - so: ubuntu-latest
+            rotulo: Linux (.deb e .rpm)
+            artefato: instalador-linux
+          - so: macos-latest
+            rotulo: macOS (.dmg)
+            artefato: instalador-macos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar o JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compilar o jar
+        shell: bash
+        run: ./mvnw -B clean package
+
+      - name: Descobrir a versão do pom
+        id: versao
+        shell: bash
+        run: |
+          V=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          echo "numero=$V" >> $GITHUB_OUTPUT
+          echo "versão: $V"
+
+      - name: Preparar a pasta de entrada
+        shell: bash
+        run: |
+          mkdir -p entrada
+          cp target/oficina.jar entrada/
+
+      # ---------------------------------------------------------------- Windows
+      # --win-per-user-install instala na pasta do usuário: sem isso o programa
+      # cairia em C:\Program Files, que exige administrador.
+      - name: Instalador do Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          jpackage --type exe --name "Oficina Mecanica" \
+            --app-version ${{ steps.versao.outputs.numero }} \
+            --input entrada --main-jar oficina.jar --main-class br.com.oficina.App \
+            --dest pacotes --vendor "UNIP - DS4P-17" \
+            --description "Sistema de Ordens de Servico para oficina mecanica" \
+            --win-dir-chooser --win-menu --win-shortcut --win-per-user-install \
+            --java-options "--enable-native-access=ALL-UNNAMED"
+
+      # ---------------------------------------------------------------- Linux
+      # O runner traz dpkg; o rpm precisa ser instalado para gerar o segundo formato.
+      - name: Instaladores do Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq rpm fakeroot
+          for tipo in deb rpm; do
+            jpackage --type $tipo --name "oficina-mecanica" \
+              --app-version ${{ steps.versao.outputs.numero }} \
+              --input entrada --main-jar oficina.jar --main-class br.com.oficina.App \
+              --dest pacotes --vendor "UNIP DS4P-17" \
+              --description "Sistema de Ordens de Servico para oficina mecanica" \
+              --linux-shortcut --linux-menu-group "Office" \
+              --java-options "--enable-native-access=ALL-UNNAMED"
+          done
+
+      # ---------------------------------------------------------------- macOS
+      # O .dmg sai SEM assinatura da Apple: na primeira abertura o macOS avisa
+      # que o desenvolvedor não é identificado, e é preciso abrir pelo menu de
+      # contexto (Abrir) uma vez. Assinar exigiria conta paga de desenvolvedor.
+      - name: Instalador do macOS
+        if: runner.os == 'macOS'
+        run: |
+          jpackage --type dmg --name "Oficina Mecanica" \
+            --app-version ${{ steps.versao.outputs.numero }} \
+            --input entrada --main-jar oficina.jar --main-class br.com.oficina.App \
+            --dest pacotes --vendor "UNIP DS4P-17" \
+            --description "Sistema de Ordens de Servico para oficina mecanica" \
+            --java-options "--enable-native-access=ALL-UNNAMED"
+
+      - name: Conferir o que saiu
+        shell: bash
+        run: ls -la pacotes
+
+      - name: Publicar como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artefato }}
+          path: |
+            pacotes/*.exe
+            pacotes/*.deb
+            pacotes/*.rpm
+            pacotes/*.dmg
+          retention-days: 90
+
+      - name: Anexar à Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pacotes/*.exe
+            pacotes/*.deb
+            pacotes/*.rpm
+            pacotes/*.dmg
+
+  # ------------------------------------------------------------------ jar universal
+  # A opção leve: roda em qualquer sistema que tenha Java 21+, sem instalar nada.
+  universal:
+    name: Jar universal
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Compilar
+        run: ./mvnw -B clean package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jar-universal
+          path: target/oficina.jar
+          retention-days: 90
+
+      - name: Anexar à Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/oficina.jar

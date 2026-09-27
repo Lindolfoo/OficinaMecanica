@@ -373,17 +373,32 @@ Exemplo, guardando os dados em outra pasta e sem abrir janela:
 
     OFICINA_DADOS=/mnt/dados/oficina APP_ABRIR_NAVEGADOR=false java -jar target/oficina.jar
 
-### Instalador do Windows
+### Instaladores prontos
 
-O repositório traz um workflow do GitHub Actions
-([`.github/workflows/instalador-windows.yml`](.github/workflows/instalador-windows.yml))
-que gera um instalador `.exe` com o `jpackage`. O instalador **embute o Java**
-(quem instala não precisa ter Java), cria atalho no menu Iniciar e instala na
-pasta do usuário, sem pedir administrador.
+Cada versão publicada gera os pacotes dos três sistemas, pelo GitHub Actions
+([`.github/workflows/pacotes.yml`](.github/workflows/pacotes.yml)). Baixe em
+[Releases](https://github.com/Lindolfoo/OficinaMecanica/releases):
 
-Ele roda em `windows-latest` porque o `jpackage` **não faz compilação cruzada**:
-no Linux ele produz `.deb`/`.rpm`, nunca `.exe`. Dispare pela aba **Actions** ou
-publicando uma tag `v*`.
+| Sistema | Arquivo | Observação |
+|---|---|---|
+| Windows | `Oficina.Mecanica-X.Y.Z.exe` | Instala na pasta do usuário, sem pedir administrador |
+| Ubuntu / Debian | `oficina-mecanica_X.Y.Z_amd64.deb` | `sudo apt install ./arquivo.deb` |
+| Fedora / openSUSE | `oficina-mecanica-X.Y.Z.rpm` | `sudo dnf install ./arquivo.rpm` |
+| macOS | `Oficina Mecanica-X.Y.Z.dmg` | Veja o aviso abaixo |
+| Qualquer um | `oficina.jar` | `java -jar oficina.jar` — exige Java 21+ |
+
+Todos **embutem o Java**, menos o `.jar`. Não há um arquivo único que sirva aos
+três sistemas: cada um tem formato próprio de instalação. O `.jar` é o que mais
+se aproxima disso, com o custo de exigir Java na máquina.
+
+**No macOS**, o `.dmg` não é assinado — assinar exige conta paga de
+desenvolvedor da Apple. Na primeira abertura o sistema avisa que o
+desenvolvedor não é identificado; abra pelo menu de contexto (**Abrir**) em vez
+do duplo clique, e confirme uma vez.
+
+Os três jobs rodam em paralelo, cada um no seu sistema, porque o `jpackage`
+**não faz compilação cruzada**: ele usa as ferramentas do sistema em que está
+(WiX no Windows, dpkg no Linux, hdiutil no macOS).
 
 ### Problemas comuns
 
