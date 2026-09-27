@@ -113,7 +113,8 @@
     veiculos: { titulo: 'Veículos', carregar: carregarVeiculos },
     servicos: { titulo: 'Serviços', carregar: carregarServicos },
     ordens: { titulo: 'Ordens de Serviço', carregar: carregarOrdens },
-    usuarios: { titulo: 'Usuários', carregar: carregarUsuarios }
+    usuarios: { titulo: 'Usuários', carregar: carregarUsuarios },
+    backup: { titulo: 'Backup', carregar: carregarBackups }
   };
 
   function irPara(nome) {
@@ -1071,6 +1072,42 @@
       })
       .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
       .always(function () { $btn.prop('disabled', false); });
+  });
+
+  // ------------------------------------------------------------ BACKUP (ADMIN)
+
+  function fmtTamanho(bytes) {
+    const mb = bytes / 1048576;
+    return mb >= 1 ? mb.toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+  }
+
+  function mostrarBackups(d) {
+    $('#pastaBackup').text('Pasta: ' + d.pasta);
+    const $tb = $('#tabelaBackups tbody').empty();
+    $('#totalBackups').text(d.copias.length + ' cópia(s) guardada(s)');
+    if (!d.copias.length) {
+      $tb.append('<tr><td colspan="3" class="vazio">Nenhuma cópia ainda.</td></tr>');
+      return;
+    }
+    d.copias.forEach(function (c) {
+      $tb.append('<tr><td class="fw-medium">' + esc(c.nome) + '</td>' +
+                 '<td class="text-nowrap">' + fmtData(c.quando) + '</td>' +
+                 '<td class="text-end">' + fmtTamanho(c.bytes) + '</td></tr>');
+    });
+  }
+
+  function carregarBackups() {
+    $.getJSON(API + '/backup')
+      .done(mostrarBackups)
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); });
+  }
+
+  $('#btnBackupAgora').on('click', function () {
+    const $b = $(this).prop('disabled', true);
+    $.ajax({ url: API + '/backup', type: 'POST' })
+      .done(function (d) { toast('Cópia criada: ' + d.arquivo); mostrarBackups(d); })
+      .fail(function (xhr) { toast(erroDe(xhr), 'danger'); })
+      .always(function () { $b.prop('disabled', false); });
   });
 
   // ------------------------------------------------------------ trocar a própria senha

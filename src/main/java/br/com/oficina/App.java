@@ -1,6 +1,7 @@
 package br.com.oficina;
 
 import br.com.oficina.api.AuthHandler;
+import br.com.oficina.api.BackupHandler;
 import br.com.oficina.api.ClienteHandler;
 import br.com.oficina.api.DashboardHandler;
 import br.com.oficina.api.OrdemServicoHandler;
@@ -9,6 +10,7 @@ import br.com.oficina.api.UsuarioHandler;
 import br.com.oficina.api.VeiculoHandler;
 import br.com.oficina.config.Config;
 import br.com.oficina.dao.UsuarioDao;
+import br.com.oficina.db.Backup;
 import br.com.oficina.db.Database;
 import br.com.oficina.desktop.Bandeja;
 import br.com.oficina.desktop.InstanciaUnica;
@@ -60,6 +62,7 @@ public final class App {
                 System.out.println("Arquivo: " + Database.arquivo());
             }
             avisarPrimeiroAcesso();
+            Backup.diarioEmSegundoPlano();
         } catch (SQLException e) {
             System.err.println("ERRO: não foi possível abrir o banco -> " + e.getMessage());
             System.err.println("O banco é o arquivo " + Database.arquivo()
@@ -74,6 +77,7 @@ public final class App {
         api.put("/api/auth", new AuthHandler());
         api.put("/api/usuarios", new UsuarioHandler());
         api.put("/api/dashboard", new DashboardHandler());
+        api.put("/api/backup", new BackupHandler());
         api.put("/api/clientes", new ClienteHandler());
         api.put("/api/veiculos", new VeiculoHandler());
         api.put("/api/servicos", new ServicoHandler());

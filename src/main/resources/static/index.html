@@ -44,6 +44,9 @@
       <button class="bl-item somente-admin d-none" data-pagina="usuarios" type="button">
         <i class="bi bi-person-gear"></i><span class="bl-texto">Usuários</span>
       </button>
+      <button class="bl-item somente-admin d-none" data-pagina="backup" type="button">
+        <i class="bi bi-shield-check"></i><span class="bl-texto">Backup</span>
+      </button>
     </nav>
 
     <button class="bl-recolher" id="btnRecolher" type="button" aria-label="Recolher o menu">
@@ -264,6 +267,40 @@
           </table>
         </div>
         <p class="text-secondary small mt-2 mb-0" id="totalOrdens"></p>
+      </section>
+
+      <!-- ===================== BACKUP (só ADMIN) ===================== -->
+      <section class="pagina" id="pgBackup">
+        <div class="barra-acoes">
+          <p class="text-secondary small mb-0" id="pastaBackup"></p>
+          <button class="btn btn-primary" id="btnBackupAgora">
+            <i class="bi bi-shield-plus"></i> Fazer backup agora
+          </button>
+        </div>
+
+        <div class="card cartao mb-3">
+          <p class="small mb-0 text-secondary">
+            A cópia é gerada com <strong>VACUUM INTO</strong>, que pede ao próprio SQLite um
+            arquivo novo e íntegro — copiar o banco à mão enquanto alguém grava pode gerar
+            arquivo corrompido. Uma cópia automática é feita por dia, na abertura do programa,
+            e as <strong>30 mais recentes</strong> são mantidas.
+            Para levar em pendrive ou nuvem, copie um arquivo da pasta acima.
+          </p>
+        </div>
+
+        <div class="table-responsive card">
+          <table class="table table-hover align-middle mb-0" id="tabelaBackups">
+            <thead class="table-light">
+              <tr>
+                <th>Arquivo</th>
+                <th>Quando</th>
+                <th class="text-end">Tamanho</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="text-secondary small mt-2 mb-0" id="totalBackups"></p>
       </section>
 
       <!-- ===================== USUÁRIOS (só ADMIN) ===================== -->
