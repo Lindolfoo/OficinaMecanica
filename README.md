@@ -43,7 +43,7 @@ Onde encontrar a evidência de cada um dos cinco critérios técnicos:
 | 5 | **Documentação e Reprodutibilidade** | Este arquivo · [evidências visuais](#4-evidências-visuais) · consultas de comprovação em [`docs/evidencias.sql`](docs/evidencias.sql) |
 
 **Para rodar em 4 comandos**, veja o [guia de execução](#3-guia-de-instalação-e-execução).
-Há dois caminhos: **com Docker** (mais rápido) e **com MySQL já instalado**.
+Não há banco de dados para instalar: o banco é um arquivo, criado na primeira execução.
 
 ---
 
@@ -72,6 +72,7 @@ preço praticado).
 | **Ordens de Serviço** | Abrir com itens, listar, filtrar por status, editar, excluir, acompanhar o status e imprimir a via em A4 |
 | **Dashboard** | Indicadores da oficina, distribuição por situação, movimento dos últimos 6 meses e itens que mais faturam |
 | **Usuários** | Login por e-mail e senha, perfis ADMIN e ATENDENTE, criar/editar/excluir contas e trocar senha |
+| **Backup** | Cópia automática diária e sob demanda, com rotação das 30 últimas |
 
 As quatro operações CRUD estão implementadas em **todas** as entidades.
 
@@ -87,19 +88,19 @@ Cada regra aponta onde ela é realmente garantida — quase sempre no banco.
 | RN04 | Cliente com veículo cadastrado não pode ser excluído | `ON DELETE RESTRICT` |
 | RN05 | Toda OS é aberta para um veículo já cadastrado | FK `ordem_servico.veiculo_id` |
 | RN06 | Veículo com OS registrada não pode ser excluído — o histórico é preservado | `ON DELETE RESTRICT` |
-| RN07 | O status da OS só assume um de quatro valores: ABERTA, EM_ANDAMENTO, CONCLUIDA ou CANCELADA. O fluxo usual segue essa ordem, mas a transição entre eles não é restringida | `ENUM` em `ordem_servico.status` + `STATUS_VALIDOS` em `OrdemServicoHandler` |
+| RN07 | O status da OS só assume um de quatro valores: ABERTA, EM_ANDAMENTO, CONCLUIDA ou CANCELADA. O fluxo usual segue essa ordem, mas a transição entre eles não é restringida | `CHECK (status IN (...))` + `STATUS_VALIDOS` em `OrdemServicoHandler` |
 | RN08 | A conclusão nunca é anterior à abertura | `CHECK (data_conclusao >= data_abertura)` |
 | RN09 | Ao concluir uma OS a data de conclusão é preenchida; ao reabrir, volta a nulo | `OrdemServicoDao.atualizar` |
 | RN10 | Uma OS é composta por itens: serviços e/ou peças, cada um com quantidade | Associativa `item_os` (N:N) |
 | RN11 | O mesmo serviço entra uma única vez por OS — repetir é aumentar a quantidade | `UNIQUE (ordem_servico_id, servico_id)` |
-| RN12 | Quantidade sempre positiva e valor nunca negativo | `CHECK (quantidade > 0)`, `CHECK (valor_unitario >= 0)` |
-| RN13 | O preço cobrado é congelado no lançamento: reajuste de tabela não altera OS antiga | `item_os.valor_unitario`, copiado de `servico.preco` |
-| RN14 | O total da OS nunca é armazenado — é sempre calculado a partir dos itens | `SUM(quantidade * valor_unitario)` |
+| RN12 | Quantidade sempre positiva e valor nunca negativo | `CHECK (quantidade > 0)`, `CHECK (valor_unitario_centavos >= 0)` |
+| RN13 | O preço cobrado é congelado no lançamento: reajuste de tabela não altera OS antiga | `item_os.valor_unitario_centavos`, copiado de `servico.preco_centavos` |
+| RN14 | O total da OS nunca é armazenado — é sempre calculado a partir dos itens | `SUM(quantidade * valor_unitario_centavos)` |
 | RN15 | Excluir uma OS apaga seus itens, mas nunca o serviço do catálogo | `CASCADE` em `item_os`, `RESTRICT` em `servico` |
 | RN16 | Serviço inativado some das OS novas, mas continua no histórico | `servico.ativo` + filtro `?ativos=true` |
 | RN17 | A gravação de uma OS com seus itens é tudo ou nada | Transação explícita em `OrdemServicoDao.inserirComItens` |
 | RN18 | Ninguém usa o sistema sem entrar com e-mail e senha | `FiltroAutenticacao` — sessão exigida na API e nas páginas |
-| RN19 | A senha nunca é armazenada, só o hash PBKDF2 com sal | `Senhas.gerarHash` + `CHECK (senha_hash LIKE 'pbkdf2\_sha256$%')` |
+| RN19 | A senha nunca é armazenada, só o hash PBKDF2 com sal | `Senhas.gerarHash` + `CHECK (senha_hash LIKE 'pbkdf2\_sha256$%' ESCAPE '\')` |
 | RN20 | O e-mail identifica a conta e não se repete | `UNIQUE (email)` em `usuario` |
 | RN21 | Cinco senhas erradas bloqueiam a conta por 15 minutos | `usuario.tentativas_falhas` + `usuario.bloqueado_ate` |
 | RN22 | Só o perfil ADMIN administra usuários, e o último ADMIN ativo não pode ser removido | `UsuarioHandler` + `UsuarioDao.contarAdminsAtivos` |
@@ -108,11 +109,13 @@ Cada regra aponta onde ela é realmente garantida — quase sempre no banco.
 
 ## 2. Modelagem de Dados
 
-**SGBD:** MySQL 8.4 · **Engine:** InnoDB · **Charset:** utf8mb4
+**SGBD:** SQLite 3 — banco em arquivo, sem servidor · **Charset:** UTF-8
 
-O schema tem **6 tabelas** e **24 restrições**: 6 chaves primárias, 4 chaves
-estrangeiras, 5 restrições de unicidade e 9 restrições de verificação (`CHECK`).
-Os números podem ser conferidos no próprio banco com a consulta 7b de
+O schema tem **6 tabelas** e **31 restrições nomeadas**: 6 chaves primárias,
+4 chaves estrangeiras, 5 de unicidade e 16 de verificação (`CHECK`). São mais
+`CHECK` do que teria em MySQL porque o SQLite não tem `ENUM` nem `UNSIGNED`:
+o que lá era tipo, aqui vira restrição explícita — e fica visível no DDL.
+Dá para conferir no próprio banco com a consulta 8 de
 [`docs/evidencias.sql`](docs/evidencias.sql).
 
 ### Diagrama Entidade-Relacionamento
@@ -125,59 +128,59 @@ erDiagram
     SERVICO ||--o{ ITEM_OS : "é lançado em"
 
     CLIENTE {
-        INT id PK "AUTO_INCREMENT"
-        VARCHAR_100 nome "NOT NULL"
-        CHAR_11 cpf UK "NOT NULL, somente dígitos"
-        VARCHAR_20 telefone "NULL"
-        VARCHAR_120 email "NULL"
-        DATETIME criado_em "DEFAULT CURRENT_TIMESTAMP"
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT nome "NOT NULL"
+        TEXT cpf UK "NOT NULL, somente dígitos"
+        TEXT telefone "NULL"
+        TEXT email "NULL"
+        TEXT criado_em "datetime(now, localtime)"
     }
 
     VEICULO {
-        INT id PK "AUTO_INCREMENT"
-        INT cliente_id FK "NOT NULL"
-        VARCHAR_8 placa UK "NOT NULL"
-        VARCHAR_50 marca "NOT NULL"
-        VARCHAR_60 modelo "NOT NULL"
-        SMALLINT ano "CHECK: entre 1950 e 2100"
-        VARCHAR_30 cor "NULL"
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER cliente_id FK "NOT NULL"
+        TEXT placa UK "NOT NULL"
+        TEXT marca "NOT NULL"
+        TEXT modelo "NOT NULL"
+        INTEGER ano "CHECK: entre 1950 e 2100"
+        TEXT cor "NULL"
     }
 
     SERVICO {
-        INT id PK "AUTO_INCREMENT"
-        VARCHAR_120 descricao UK "NOT NULL"
-        ENUM tipo "MAO_DE_OBRA / PECA"
-        DECIMAL_10_2 preco "CHECK: não negativo"
-        TINYINT ativo "DEFAULT 1"
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT descricao UK "NOT NULL"
+        TEXT tipo "CHECK: MAO_DE_OBRA / PECA"
+        INTEGER preco_centavos "CHECK: não negativo"
+        INTEGER ativo "DEFAULT 1"
     }
 
     ORDEM_SERVICO {
-        INT id PK "AUTO_INCREMENT"
-        INT veiculo_id FK "NOT NULL"
-        ENUM status "ABERTA / EM_ANDAMENTO / CONCLUIDA / CANCELADA"
-        VARCHAR_500 descricao_problema "NOT NULL"
-        INT km_atual "NULL"
-        DATETIME data_abertura "DEFAULT CURRENT_TIMESTAMP"
-        DATETIME data_conclusao "NULL, CHECK: não anterior à abertura"
-        VARCHAR_500 observacoes "NULL"
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER veiculo_id FK "NOT NULL"
+        TEXT status "CHECK: ABERTA / EM_ANDAMENTO / ..."
+        TEXT descricao_problema "NOT NULL"
+        INTEGER km_atual "NULL"
+        TEXT data_abertura "datetime(now, localtime)"
+        TEXT data_conclusao "NULL, CHECK: não anterior à abertura"
+        TEXT observacoes "NULL"
     }
 
     ITEM_OS {
-        INT id PK "AUTO_INCREMENT"
-        INT ordem_servico_id FK "NOT NULL"
-        INT servico_id FK "NOT NULL"
-        INT quantidade "CHECK: maior que zero"
-        DECIMAL_10_2 valor_unitario "CHECK: não negativo"
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER ordem_servico_id FK "NOT NULL"
+        INTEGER servico_id FK "NOT NULL"
+        INTEGER quantidade "CHECK: maior que zero"
+        INTEGER valor_unitario_centavos "CHECK: não negativo"
     }
 
     USUARIO {
-        INT id PK "AUTO_INCREMENT"
-        VARCHAR_100 nome "NOT NULL"
-        VARCHAR_120 email UK "NOT NULL, é o login"
-        VARCHAR_255 senha_hash "NOT NULL, PBKDF2 — nunca a senha"
-        ENUM perfil "ADMIN / ATENDENTE"
-        TINYINT ativo "DEFAULT 1"
-        DATETIME bloqueado_ate "NULL, bloqueio por força bruta"
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT nome "NOT NULL"
+        TEXT email UK "NOT NULL, é o login"
+        TEXT senha_hash "NOT NULL, PBKDF2 — nunca a senha"
+        TEXT perfil "CHECK: ADMIN / ATENDENTE"
+        INTEGER ativo "DEFAULT 1"
+        TEXT bloqueado_ate "NULL, bloqueio por força bruta"
     }
 ```
 
@@ -250,21 +253,31 @@ Amostra, com os quatro tipos de restrição em uma tabela só:
 
 ```sql
 CREATE TABLE IF NOT EXISTS item_os (
-  id                INT UNSIGNED    NOT NULL AUTO_INCREMENT,
-  ordem_servico_id  INT UNSIGNED    NOT NULL,
-  servico_id        INT UNSIGNED    NOT NULL,
-  quantidade        INT UNSIGNED    NOT NULL DEFAULT 1,
-  valor_unitario    DECIMAL(10,2)   NOT NULL,
-  CONSTRAINT pk_item_os          PRIMARY KEY (id),
+  id                INTEGER  NOT NULL,
+  ordem_servico_id  INTEGER  NOT NULL,
+  servico_id        INTEGER  NOT NULL,
+  quantidade        INTEGER  NOT NULL DEFAULT 1,
+  valor_unitario_centavos INTEGER NOT NULL,
+  CONSTRAINT pk_item_os          PRIMARY KEY (id AUTOINCREMENT),
   CONSTRAINT uq_item_os          UNIQUE (ordem_servico_id, servico_id),
   CONSTRAINT ck_item_os_qtd      CHECK (quantidade > 0),
-  CONSTRAINT ck_item_os_valor    CHECK (valor_unitario >= 0),
+  CONSTRAINT ck_item_os_valor    CHECK (valor_unitario_centavos >= 0),
   CONSTRAINT fk_item_os_os       FOREIGN KEY (ordem_servico_id) REFERENCES ordem_servico (id)
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_item_os_servico  FOREIGN KEY (servico_id) REFERENCES servico (id)
     ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB;
+);
 ```
+
+> **As chaves estrangeiras do SQLite vêm desligadas por padrão.** Quem as liga é
+> a aplicação, com `PRAGMA foreign_keys = ON` em **toda** conexão
+> ([`db/Database.java`](src/main/java/br/com/oficina/db/Database.java)). Sem
+> isso, RN04, RN06 e RN15 deixariam de valer sem nenhum erro aparecer.
+
+> **Dinheiro é inteiro de centavos.** O SQLite não tem tipo decimal de verdade:
+> `DECIMAL(10,2)` acabaria guardando ponto flutuante, e somar dinheiro em float
+> pode render centavo errado. `4590` é R$ 45,90, e `SUM()` é exato. A conversão
+> fica em [`util/Dinheiro.java`](src/main/java/br/com/oficina/util/Dinheiro.java).
 
 ---
 
@@ -276,12 +289,12 @@ Instruções a partir do **repositório limpo**, em Windows, Linux ou macOS.
 
 | Programa | Versão | Para quê |
 |---|---|---|
-| **JDK** | 21 ou mais novo | Compilar e rodar a aplicação |
+| **JDK** | 21 ou mais novo | Compilar e rodar |
 | **Git** | qualquer | Clonar o repositório |
-| **MySQL** | 8.x | O banco — via Docker (caminho A) ou instalado (caminho B) |
 
-**Não é preciso instalar o Maven:** o repositório traz o Maven Wrapper (`mvnw` e
-`mvnw.cmd`), que baixa a versão certa sozinho na primeira execução.
+**Não é preciso instalar banco de dados.** O banco é um arquivo SQLite criado
+na primeira execução. Também não é preciso instalar o Maven: o repositório traz
+o Maven Wrapper (`mvnw` e `mvnw.cmd`), que baixa a versão certa sozinho.
 
 Confira no terminal:
 
@@ -292,69 +305,52 @@ Confira no terminal:
     git clone https://github.com/Lindolfoo/OficinaMecanica.git
     cd OficinaMecanica
 
-### Passo 2 — Subir o banco
-
-Escolha **um** dos dois caminhos.
-
-#### Caminho A — com Docker (recomendado)
-
-Não exige MySQL instalado. Com o Docker aberto:
-
-    docker compose up -d
-
-Na primeira vez o container cria o schema e carrega os dados de exemplo
-automaticamente; aguarde uns 20 segundos. Pronto, pule para o passo 3.
-
-#### Caminho B — com MySQL já instalado
-
-Se você já tem MySQL na máquina e prefere não usar Docker, rode os dois scripts
-com um usuário que possa criar schema:
-
-    mysql -u root -p < sql/01_schema.sql
-    mysql -u root -p < sql/02_seed.sql
-
-No Windows, se o `mysql` não estiver no PATH, use o caminho completo (por
-exemplo `"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"`) ou abra os
-dois arquivos no MySQL Workbench e execute cada um.
-
-Se o seu usuário/senha **não** forem `root`/`root`, informe os seus no passo 4
-(veja *Configuração*).
-
-### Passo 3 — Gerar o executável
+### Passo 2 — Gerar o executável
 
     ./mvnw package          # Linux e macOS
     mvnw.cmd package        # Windows
 
-Gera `target/oficina.jar`, com o driver do MySQL já embutido.
+Gera `target/oficina.jar`, com o driver do SQLite já embutido.
 
-### Passo 4 — Rodar
+### Passo 3 — Rodar
 
     java -jar target/oficina.jar
 
-Se o seu MySQL usa outro usuário ou senha:
+Na primeira execução o programa cria o arquivo do banco, aplica o schema e
+carrega os dados de exemplo. Em seguida abre a janela do sistema sozinho
+(Edge ou Chrome em modo aplicativo; se não achar, usa o navegador padrão) e
+instala um ícone na área de notificação, com a opção **Sair**.
 
-    # Linux e macOS
-    DB_USER=seu_usuario DB_PASSWORD=sua_senha java -jar target/oficina.jar
+Se preferir abrir na mão, o endereço aparece no console:
+`Servidor no ar: http://localhost:8080`.
 
-    # Windows (PowerShell)
-    $env:DB_USER="seu_usuario"; $env:DB_PASSWORD="sua_senha"
-    java -jar target/oficina.jar
+### Passo 4 — Primeiro acesso
 
-Quando aparecer `Servidor no ar: http://localhost:8080`, abra
-<http://localhost:8080>. Para encerrar, **Ctrl+C**.
+Não existe senha padrão. Na primeira execução a tela de entrada vira **Primeiro
+acesso** e pede nome, e-mail e senha para criar o administrador. Essa conta é
+sua; a tela deixa de oferecer isso assim que ela existir.
 
-### Passo 5 — Primeiro acesso
+Depois dá para trocar a senha em **menu do usuário › Trocar minha senha** e
+cadastrar a equipe em **Administração › Usuários**.
 
-A tabela `usuario` nasce vazia, então a aplicação cria sozinha um administrador e
-mostra os dados no console:
+### Onde ficam os dados
 
-    e-mail: admin@oficina.local
-    senha:  oficina2026
+O banco, os backups e a trava de instância ficam na pasta de dados do usuário —
+**nunca junto do programa**, porque em `C:\Program Files` o Windows bloqueia
+a gravação:
 
-Entre com eles. Depois é possível trocar a senha em **menu do usuário › Trocar
-minha senha** e cadastrar outras contas em **Administração › Usuários**.
+| Sistema | Pasta |
+|---|---|
+| Windows | `%LOCALAPPDATA%\OficinaMecanica\` |
+| Linux | `~/.local/share/OficinaMecanica/` |
+| macOS | `~/Library/Application Support/OficinaMecanica/` |
 
-> Nas próximas vezes bastam os passos 2 e 4.
+Dentro dela: `oficina.db` (o banco inteiro, um arquivo só) e `backups/`.
+
+**Para levar os dados para outro computador**, copie o `oficina.db`. Para uma
+cópia segura com o sistema aberto, use **Administração › Backup**, que gera o
+arquivo com `VACUUM INTO` — copiar o `.db` na mão enquanto alguém grava pode
+gerar arquivo corrompido.
 
 ### Configuração
 
@@ -364,36 +360,46 @@ Qualquer chave pode ser sobrescrita por variável de ambiente:
 | Chave | Variável | Padrão | Para quê |
 |---|---|---|---|
 | `server.host` | `HOST` | `127.0.0.1` | `0.0.0.0` libera o acesso pela rede |
-| `server.port` | `PORT` | `8080` | Porta da aplicação |
-| `db.url` | `DB_URL` | `jdbc:mysql://localhost:3306/oficina...` | Endereço do banco |
-| `db.user` / `db.password` | `DB_USER` / `DB_PASSWORD` | `root` / `root` | Credenciais do MySQL |
+| `server.port` | `PORT` | `8080` | Porta; se estiver ocupada, o programa escolhe uma livre |
+| `db.pasta` | `OFICINA_DADOS` | (vazio) | Outra pasta para banco e backups |
 | `db.autoSchema` | `DB_AUTO_SCHEMA` | `true` | Aplica o DDL na subida |
+| `db.seedInicial` | `DB_SEED_INICIAL` | `true` | Carrega os dados de exemplo quando o banco nasce vazio |
 | `auth.sessaoMinutos` | `SESSAO_MINUTOS` | `30` | Inatividade até a sessão cair |
-| `auth.adminEmail` / `auth.adminSenha` | `ADMIN_EMAIL` / `ADMIN_SENHA` | `admin@oficina.local` / `oficina2026` | Administrador da primeira execução |
+| `auth.cookieSeguro` | `COOKIE_SEGURO` | `false` | `true` ao publicar em HTTPS |
+| `app.abrirNavegador` | `APP_ABRIR_NAVEGADOR` | `true` | Abrir a janela ao iniciar |
+| `app.bandeja` | `APP_BANDEJA` | `true` | Ícone na área de notificação |
 
-Exemplo com a aplicação na porta 8090 e o MySQL na 3307:
+Exemplo, guardando os dados em outra pasta e sem abrir janela:
 
-    PORT=8090 DB_URL="jdbc:mysql://localhost:3307/oficina?allowPublicKeyRetrieval=true" java -jar target/oficina.jar
+    OFICINA_DADOS=/mnt/dados/oficina APP_ABRIR_NAVEGADOR=false java -jar target/oficina.jar
+
+### Instalador do Windows
+
+O repositório traz um workflow do GitHub Actions
+([`.github/workflows/instalador-windows.yml`](.github/workflows/instalador-windows.yml))
+que gera um instalador `.exe` com o `jpackage`. O instalador **embute o Java**
+(quem instala não precisa ter Java), cria atalho no menu Iniciar e instala na
+pasta do usuário, sem pedir administrador.
+
+Ele roda em `windows-latest` porque o `jpackage` **não faz compilação cruzada**:
+no Linux ele produz `.deb`/`.rpm`, nunca `.exe`. Dispare pela aba **Actions** ou
+publicando uma tag `v*`.
 
 ### Problemas comuns
 
 | Sintoma | Causa provável | Solução |
 |---|---|---|
-| `ERRO: não foi possível conectar ao MySQL` | Banco fora do ar ou credenciais diferentes | Confira se o MySQL subiu; informe `DB_USER`/`DB_PASSWORD` |
-| `port is already allocated` no Docker | Já existe um MySQL na porta 3306 | Pare o outro MySQL, ou troque para `"127.0.0.1:3307:3306"` no `docker-compose.yml` e informe `DB_URL` |
-| `release version 21 not supported` | JDK anterior ao 21 | Instale o JDK 21+ (Temurin, em adoptium.net) |
+| `release version 21 not supported` | JDK anterior ao 21 | Instale o [Temurin 21](https://adoptium.net/temurin/releases/?version=21) |
 | `./mvnw: Permission denied` | Script sem permissão | `chmod +x mvnw` |
-| Porta 8080 ocupada | Outro programa usando a porta | Rode com `PORT=8090` |
-| Acentos errados no terminal | Charset do cliente | Use `--default-character-set=utf8mb4` |
+| "O sistema já está aberto" | Já há uma cópia rodando | É o esperado: só uma por vez. Use o ícone da bandeja |
+| A janela não abre sozinha | Sem Edge/Chrome, ou sem ambiente gráfico | Abra o endereço que aparece no console |
+| `não foi possível abrir o banco` | Pasta sem permissão de escrita | Informe outra em `OFICINA_DADOS` |
 
-### Recomeçar o banco do zero
+### Recomeçar do zero
 
-    docker compose down -v
-    docker compose up -d
-
-### Acessar o banco pelo MySQL Workbench
-
-Host `127.0.0.1`, porta `3306`, usuário `root`, senha `root`, schema `oficina`.
+Feche o programa e apague o arquivo do banco (`oficina.db`) na pasta de dados.
+Na próxima execução ele é recriado com os dados de exemplo — e o primeiro
+acesso volta a pedir a criação do administrador.
 
 ---
 
@@ -449,8 +455,9 @@ Todos os prints estão em [`docs/prints/`](docs/prints/).
 
 ### Como reproduzir as evidências
 
-    docker exec -i oficina-mysql mysql -uroot -proot \
-      --table --default-character-set=utf8mb4 < docs/evidencias.sql
+    sqlite3 -header -column "CAMINHO/oficina.db" < docs/evidencias.sql
+
+O caminho aparece no console quando a aplicação sobe ("Arquivo: ...").
 
 O arquivo traz ainda três comandos que **falham de propósito** — o erro é
 justamente a prova de que a integridade está ativa (FK bloqueando exclusão,
@@ -462,7 +469,7 @@ justamente a prova de que a integridade está ativa (FK bloqueando exclusão,
 
 | Restrição da atividade | Como o projeto cumpre | Onde verificar |
 |---|---|---|
-| SGBD: SQL Server, MySQL ou SQLite | **MySQL 8.4** | [`docker-compose.yml`](docker-compose.yml) |
+| SGBD: SQL Server, MySQL ou SQLite | **SQLite 3** — banco em arquivo | [`sql/01_schema.sql`](sql/01_schema.sql) |
 | Linguagem: C#, Python, TypeScript, PHP ou Java | **Java 21** | [`pom.xml`](pom.xml) |
 | **Proibido framework no back-end** | Nenhum. Servidor HTTP é o `com.sun.net.httpserver`, que já vem no JDK | [`App.java`](src/main/java/br/com/oficina/App.java) |
 | **Proibido ORM** | Nenhum. Todo mapeamento é escrito à mão nos DAOs | [`dao/`](src/main/java/br/com/oficina/dao/) |
@@ -470,7 +477,7 @@ justamente a prova de que a integridade está ativa (FK bloqueando exclusão,
 | Front-end: HTML5, CSS3, JS puro, jQuery, Bootstrap | Exatamente isso — jQuery 3 e Bootstrap 5 (com Bootstrap Icons), servidos localmente | [`static/vendor/`](src/main/resources/static/vendor/) |
 | **Proibido SPA** (React, Angular, Vue) | Nenhum. A navegação é jQuery puro | [`app.js`](src/main/resources/static/js/app.js) |
 
-**O `pom.xml` tem uma única dependência: o driver JDBC do MySQL (Connector/J)** —
+**O `pom.xml` tem uma única dependência: o driver JDBC do SQLite (sqlite-jdbc)** —
 exatamente o "driver nativo de conexão da linguagem" que a atividade pede. Nem
 para criptografia há biblioteca externa: o PBKDF2 vem do `javax.crypto`, do
 próprio JDK. Os gráficos do dashboard são SVG escrito à mão, sem biblioteca de
@@ -487,16 +494,20 @@ Toda consulta que recebe dado de fora é parametrizada.
 ## Arquitetura do código
 
     sql/                      DDL e carga inicial
+    .github/workflows/        gera o instalador .exe no GitHub Actions
     src/main/java/br/com/oficina/
       App.java                sobe o servidor, registra rotas e filtros
       config/                 leitura de config.properties e variáveis de ambiente
       db/Database.java        conexões JDBC e aplicação do schema
       http/                   Json, HttpUtil, BaseHandler, StaticHandler
       security/               Senhas (PBKDF2), Sessoes e os filtros de acesso
+      desktop/                janela do navegador, bandeja e instância única
+      db/Backup.java          cópias de segurança com VACUUM INTO
       model/                  records espelhando as tabelas
       dao/                    o SQL de cada tabela
       api/                    validação de entrada e tradução HTTP
       util/Validators.java    CPF (módulo 11), e-mail e força da senha
+      util/Dinheiro.java      converte reais e centavos
     src/main/resources/static/
       login.html, js/login.js   tela de entrada
       index.html, js/app.js     menu lateral, dashboard e os módulos
@@ -518,7 +529,7 @@ Fluxo de uma requisição:
         -> App.java (rota)
         -> XHandler (valida a entrada)
         -> XDao (PreparedStatement)
-        -> MySQL
+        -> SQLite (arquivo oficina.db)
         -> volta como JSON
 
 [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) sugere a ordem de leitura do código.
@@ -580,6 +591,9 @@ Respostas em JSON; entrada como formulário (`application/x-www-form-urlencoded`
 | `GET` | `/api/dashboard` | indicadores, gráficos e últimas OS |
 | `POST` | `/api/auth/login` · `/logout` · `/senha` | entrar, sair e trocar a senha |
 | `GET` | `/api/usuarios` | lista contas — **só ADMIN** |
+| `GET` | `/api/auth/estado` | diz se o sistema ainda não tem administrador |
+| `POST` | `/api/auth/configurar` | cria o primeiro administrador (409 depois disso) |
+| `GET` `POST` | `/api/backup` | lista e gera cópias de segurança — **só ADMIN** |
 
 Veículos e serviços seguem o mesmo padrão CRUD dos clientes. Toda rota que altera
 dados exige o cabeçalho `X-CSRF-Token`.
@@ -594,16 +608,23 @@ foi feito:
 | Ataque | Defesa |
 |---|---|
 | Vazamento do banco expondo senhas | Senha nunca é gravada: só o **PBKDF2-SHA256**, 210 mil iterações, com sal por usuário |
-| Gravar senha em texto direto no banco | `CHECK (senha_hash LIKE 'pbkdf2\_sha256$%')` — o MySQL recusa |
+| Gravar senha em texto direto no banco | `CHECK (senha_hash LIKE 'pbkdf2\_sha256$%' ESCAPE '\')` — o banco recusa |
 | Força bruta | 5 erros bloqueiam a conta por 15 min; no máximo 10 tentativas/min por endereço |
 | Enumeração de usuários | Mensagem sempre igual e tempo de resposta constante |
 | Editar o cookie para virar ADMIN | O cookie só tem um token aleatório de 256 bits |
 | Roubo de cookie por script injetado | Cookie `HttpOnly` + CSP travando `script-src` em `'self'` |
 | CSRF | Token obrigatório em `POST`/`PUT`/`DELETE` + `SameSite=Strict` |
+| Senha conhecida em toda instalação | Não há senha padrão: o administrador é criado no primeiro acesso |
+| Site malicioso falando com o programa local | O `Host` precisa ser `localhost`/`127.0.0.1`, senão `403` — impede DNS rebinding, em que o navegador trataria o atacante como mesma origem e nem o CSRF protegeria |
+| Envio gigante consumindo memória | Corpo de requisição limitado a 1 MB (`413`) |
+| Perda de dados | Backup diário automático com `VACUUM INTO`, rotação de 30, e verificação de integridade antes de copiar |
 
-O que **não** está resolvido, e é honesto dizer: o tráfego é HTTP puro. Em
-produção isso pediria um proxy com HTTPS e `auth.cookieSeguro=true`. As sessões
-vivem em memória — reiniciar a aplicação desloga todo mundo.
+O que **não** está resolvido, e é honesto dizer: o tráfego é HTTP puro. Como o
+servidor escuta só em `127.0.0.1` e o `Host` é conferido, isso é aceitável num
+programa de desktop; publicado em rede, pediria um proxy com HTTPS e
+`auth.cookieSeguro=true`. As sessões vivem em memória — reiniciar desloga todo
+mundo. E qualquer pessoa com acesso ao computador pode copiar o arquivo do
+banco: ele não é criptografado.
 
 ---
 
