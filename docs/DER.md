@@ -1,7 +1,7 @@
 # Modelagem de Dados — DER e Dicionário de Dados
 
 Sistema de Ordens de Serviço de uma oficina mecânica.
-SGBD: **MySQL 8.4** · Engine: **InnoDB** · Charset: **utf8mb4**
+SGBD: **SQLite 3** (banco em arquivo, sem servidor) · Charset: **UTF-8**
 
 O script DDL completo e comentado está em [`../sql/01_schema.sql`](../sql/01_schema.sql).
 
@@ -15,68 +15,72 @@ erDiagram
     SERVICO ||--o{ ITEM_OS : "é lançado em"
 
     CLIENTE {
-        INT id PK "AUTO_INCREMENT"
-        VARCHAR_100 nome "NOT NULL"
-        CHAR_11 cpf UK "NOT NULL, somente dígitos"
-        VARCHAR_20 telefone "NULL"
-        VARCHAR_120 email "NULL"
-        DATETIME criado_em "DEFAULT CURRENT_TIMESTAMP"
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT nome "NOT NULL"
+        TEXT cpf UK "NOT NULL, somente dígitos"
+        TEXT telefone "NULL"
+        TEXT email "NULL"
+        TEXT criado_em "datetime(now, localtime)"
     }
 
     VEICULO {
-        INT id PK "AUTO_INCREMENT"
-        INT cliente_id FK "NOT NULL"
-        VARCHAR_8 placa UK "NOT NULL"
-        VARCHAR_50 marca "NOT NULL"
-        VARCHAR_60 modelo "NOT NULL"
-        SMALLINT ano "CHECK: entre 1950 e 2100"
-        VARCHAR_30 cor "NULL"
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER cliente_id FK "NOT NULL"
+        TEXT placa UK "NOT NULL"
+        TEXT marca "NOT NULL"
+        TEXT modelo "NOT NULL"
+        INTEGER ano "CHECK: entre 1950 e 2100"
+        TEXT cor "NULL"
     }
 
     SERVICO {
-        INT id PK "AUTO_INCREMENT"
-        VARCHAR_120 descricao UK "NOT NULL"
-        ENUM tipo "MAO_DE_OBRA / PECA"
-        DECIMAL_10_2 preco "CHECK: não negativo"
-        TINYINT ativo "DEFAULT 1"
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT descricao UK "NOT NULL"
+        TEXT tipo "CHECK: MAO_DE_OBRA / PECA"
+        INTEGER preco_centavos "CHECK: não negativo"
+        INTEGER ativo "DEFAULT 1"
     }
 
     ORDEM_SERVICO {
-        INT id PK "AUTO_INCREMENT"
-        INT veiculo_id FK "NOT NULL"
-        ENUM status "ABERTA / EM_ANDAMENTO / CONCLUIDA / CANCELADA"
-        VARCHAR_500 descricao_problema "NOT NULL"
-        INT km_atual "NULL"
-        DATETIME data_abertura "DEFAULT CURRENT_TIMESTAMP"
-        DATETIME data_conclusao "NULL, CHECK: não anterior à abertura"
-        VARCHAR_500 observacoes "NULL"
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER veiculo_id FK "NOT NULL"
+        TEXT status "CHECK: ABERTA / EM_ANDAMENTO / CONCLUIDA / CANCELADA"
+        TEXT descricao_problema "NOT NULL"
+        INTEGER km_atual "NULL"
+        TEXT data_abertura "datetime(now, localtime)"
+        TEXT data_conclusao "NULL, CHECK: não anterior à abertura"
+        TEXT observacoes "NULL"
     }
 
     ITEM_OS {
-        INT id PK "AUTO_INCREMENT"
-        INT ordem_servico_id FK "NOT NULL"
-        INT servico_id FK "NOT NULL"
-        INT quantidade "CHECK: maior que zero"
-        DECIMAL_10_2 valor_unitario "CHECK: não negativo"
+        INTEGER id PK "AUTOINCREMENT"
+        INTEGER ordem_servico_id FK "NOT NULL"
+        INTEGER servico_id FK "NOT NULL"
+        INTEGER quantidade "CHECK: maior que zero"
+        INTEGER valor_unitario_centavos "CHECK: não negativo"
     }
 
     USUARIO {
-        INT id PK "AUTO_INCREMENT"
-        VARCHAR_100 nome "NOT NULL"
-        VARCHAR_120 email UK "NOT NULL, é o login"
-        VARCHAR_255 senha_hash "NOT NULL, PBKDF2 — nunca a senha"
-        ENUM perfil "ADMIN / ATENDENTE"
-        TINYINT ativo "DEFAULT 1"
-        TINYINT tentativas_falhas "DEFAULT 0"
-        DATETIME bloqueado_ate "NULL"
-        DATETIME ultimo_acesso "NULL"
-        DATETIME criado_em "DEFAULT CURRENT_TIMESTAMP"
+        INTEGER id PK "AUTOINCREMENT"
+        TEXT nome "NOT NULL"
+        TEXT email UK "NOT NULL, é o login"
+        TEXT senha_hash "NOT NULL, PBKDF2 — nunca a senha"
+        TEXT perfil "CHECK: ADMIN / ATENDENTE"
+        INTEGER ativo "DEFAULT 1"
+        INTEGER tentativas_falhas "DEFAULT 0"
+        TEXT bloqueado_ate "NULL"
+        TEXT ultimo_acesso "NULL"
+        TEXT criado_em "datetime(now, localtime)"
     }
 ```
 
 A mesma figura em imagem, para leitura fora do GitHub:
 
 ![DER em imagem](der.png)
+
+> As datas usam `datetime('now','localtime')`, não `CURRENT_TIMESTAMP`: no
+> SQLite este último grava em **UTC**, e a data de abertura da OS apareceria
+> adiantada em três horas.
 
 > Notação pé-de-galinha: `||` = exatamente um · `o{` = zero ou muitos.
 
@@ -127,61 +131,61 @@ Proprietário dos veículos atendidos.
 
 | Coluna | Tipo | Nulo | Restrição |
 |---|---|---|---|
-| `id` | `INT UNSIGNED` | não | PK, `AUTO_INCREMENT` |
-| `nome` | `VARCHAR(100)` | não | Índice `idx_cliente_nome` |
-| `cpf` | `CHAR(11)` | não | `UNIQUE`, `CHECK (cpf REGEXP '^[0-9]{11}$')` — somente dígitos |
-| `telefone` | `VARCHAR(20)` | sim | |
-| `email` | `VARCHAR(120)` | sim | |
-| `criado_em` | `DATETIME` | não | `DEFAULT CURRENT_TIMESTAMP` |
+| `id` | `INTEGER` | não | PK, `AUTOINCREMENT` |
+| `nome` | `TEXT` | não | Índice `idx_cliente_nome` |
+| `cpf` | `TEXT` | não | `UNIQUE`, `CHECK (cpf GLOB ...)` — exatamente 11 dígitos |
+| `telefone` | `TEXT` | sim | |
+| `email` | `TEXT` | sim | |
+| `criado_em` | `TEXT` | não | `DEFAULT (datetime('now','localtime'))` |
 
 ### veiculo
 Um cliente possui N veículos.
 
 | Coluna | Tipo | Nulo | Restrição |
 |---|---|---|---|
-| `id` | `INT UNSIGNED` | não | PK, `AUTO_INCREMENT` |
-| `cliente_id` | `INT UNSIGNED` | não | FK → `cliente.id` |
-| `placa` | `VARCHAR(8)` | não | `UNIQUE` — Mercosul (`ABC1D23`) ou antiga (`ABC-1234`) |
-| `marca` | `VARCHAR(50)` | não | |
-| `modelo` | `VARCHAR(60)` | não | |
-| `ano` | `SMALLINT UNSIGNED` | não | `CHECK (ano BETWEEN 1950 AND 2100)` |
-| `cor` | `VARCHAR(30)` | sim | |
+| `id` | `INTEGER` | não | PK, `AUTOINCREMENT` |
+| `cliente_id` | `INTEGER` | não | FK → `cliente.id` |
+| `placa` | `TEXT` | não | `UNIQUE` — Mercosul (`ABC1D23`) ou antiga (`ABC-1234`) |
+| `marca` | `TEXT` | não | |
+| `modelo` | `TEXT` | não | |
+| `ano` | `INTEGER` | não | `CHECK (ano BETWEEN 1950 AND 2100)` |
+| `cor` | `TEXT` | sim | |
 
 ### servico
 Catálogo de mão de obra e peças, com preço de tabela.
 
 | Coluna | Tipo | Nulo | Restrição |
 |---|---|---|---|
-| `id` | `INT UNSIGNED` | não | PK, `AUTO_INCREMENT` |
-| `descricao` | `VARCHAR(120)` | não | `UNIQUE` |
-| `tipo` | `ENUM('MAO_DE_OBRA','PECA')` | não | `DEFAULT 'MAO_DE_OBRA'` |
-| `preco` | `DECIMAL(10,2)` | não | `CHECK (preco >= 0)` |
-| `ativo` | `TINYINT(1)` | não | `DEFAULT 1` — inativo não entra em OS nova |
+| `id` | `INTEGER` | não | PK, `AUTOINCREMENT` |
+| `descricao` | `TEXT` | não | `UNIQUE` |
+| `tipo` | `TEXT` | não | `CHECK (tipo IN ('MAO_DE_OBRA','PECA'))` · `DEFAULT 'MAO_DE_OBRA'` |
+| `preco_centavos` | `INTEGER` | não | `CHECK (preco_centavos >= 0)` — valor em centavos |
+| `ativo` | `INTEGER` | não | `DEFAULT 1` — inativo não entra em OS nova |
 
 ### ordem_servico
 Cabeçalho da OS. **O valor total não é armazenado.**
 
 | Coluna | Tipo | Nulo | Restrição |
 |---|---|---|---|
-| `id` | `INT UNSIGNED` | não | PK, `AUTO_INCREMENT` |
-| `veiculo_id` | `INT UNSIGNED` | não | FK → `veiculo.id` |
-| `status` | `ENUM(...)` | não | `ABERTA`, `EM_ANDAMENTO`, `CONCLUIDA`, `CANCELADA` · `DEFAULT 'ABERTA'` · índice `idx_os_status` |
-| `descricao_problema` | `VARCHAR(500)` | não | Relato do cliente |
-| `km_atual` | `INT UNSIGNED` | sim | Quilometragem na entrada |
-| `data_abertura` | `DATETIME` | não | `DEFAULT CURRENT_TIMESTAMP` · índice `idx_os_data_abertura` |
-| `data_conclusao` | `DATETIME` | sim | `CHECK (data_conclusao IS NULL OR data_conclusao >= data_abertura)` |
-| `observacoes` | `VARCHAR(500)` | sim | |
+| `id` | `INTEGER` | não | PK, `AUTOINCREMENT` |
+| `veiculo_id` | `INTEGER` | não | FK → `veiculo.id` |
+| `status` | `TEXT` | não | `CHECK (status IN (...))`: `ABERTA`, `EM_ANDAMENTO`, `CONCLUIDA`, `CANCELADA` · `DEFAULT 'ABERTA'` · índice `idx_os_status` |
+| `descricao_problema` | `TEXT` | não | Relato do cliente |
+| `km_atual` | `INTEGER` | sim | Quilometragem na entrada |
+| `data_abertura` | `TEXT` | não | `DEFAULT (datetime('now','localtime'))` · índice `idx_os_data_abertura` |
+| `data_conclusao` | `TEXT` | sim | `CHECK (data_conclusao IS NULL OR data_conclusao >= data_abertura)` |
+| `observacoes` | `TEXT` | sim | |
 
 ### item_os
 Entidade associativa N:N entre `ordem_servico` e `servico`.
 
 | Coluna | Tipo | Nulo | Restrição |
 |---|---|---|---|
-| `id` | `INT UNSIGNED` | não | PK, `AUTO_INCREMENT` |
-| `ordem_servico_id` | `INT UNSIGNED` | não | FK → `ordem_servico.id` |
-| `servico_id` | `INT UNSIGNED` | não | FK → `servico.id` |
-| `quantidade` | `INT UNSIGNED` | não | `CHECK (quantidade > 0)` · `DEFAULT 1` |
-| `valor_unitario` | `DECIMAL(10,2)` | não | `CHECK (valor_unitario >= 0)` |
+| `id` | `INTEGER` | não | PK, `AUTOINCREMENT` |
+| `ordem_servico_id` | `INTEGER` | não | FK → `ordem_servico.id` |
+| `servico_id` | `INTEGER` | não | FK → `servico.id` |
+| `quantidade` | `INTEGER` | não | `CHECK (quantidade > 0)` · `DEFAULT 1` |
+| `valor_unitario_centavos` | `INTEGER` | não | `CHECK (valor_unitario_centavos >= 0)` — em centavos |
 
 `CONSTRAINT uq_item_os UNIQUE (ordem_servico_id, servico_id)` — o mesmo serviço
 entra uma única vez por OS; repetir significa aumentar a quantidade.
@@ -192,20 +196,20 @@ abaixo do diagrama).
 
 | Coluna | Tipo | Nulo | Restrição |
 |---|---|---|---|
-| `id` | `INT UNSIGNED` | não | PK, `AUTO_INCREMENT` |
-| `nome` | `VARCHAR(100)` | não | `CHECK (CHAR_LENGTH(nome) >= 2)` |
-| `email` | `VARCHAR(120)` | não | `UNIQUE` — é o login · `CHECK (email LIKE '_%@_%._%')` |
-| `senha_hash` | `VARCHAR(255)` | não | `CHECK (senha_hash LIKE 'pbkdf2\_sha256$%')` — o banco recusa senha em texto puro |
+| `id` | `INTEGER` | não | PK, `AUTOINCREMENT` |
+| `nome` | `TEXT` | não | `CHECK (CHAR_LENGTH(nome) >= 2)` |
+| `email` | `TEXT` | não | `UNIQUE` — é o login · `CHECK (email LIKE '_%@_%._%')` |
+| `senha_hash` | `TEXT` | não | `CHECK (senha_hash LIKE 'pbkdf2\_sha256$%' ESCAPE '\')` — o banco recusa senha em texto puro |
 | `perfil` | `ENUM('ADMIN','ATENDENTE')` | não | `DEFAULT 'ATENDENTE'` |
-| `ativo` | `TINYINT(1)` | não | `DEFAULT 1` — inativo não consegue entrar |
-| `tentativas_falhas` | `TINYINT UNSIGNED` | não | `DEFAULT 0` — contador de senhas erradas |
-| `bloqueado_ate` | `DATETIME` | sim | Bloqueio temporário por força bruta |
-| `ultimo_acesso` | `DATETIME` | sim | Carimbado a cada login aceito |
-| `criado_em` | `DATETIME` | não | `DEFAULT CURRENT_TIMESTAMP` |
+| `ativo` | `INTEGER` | não | `DEFAULT 1` — inativo não consegue entrar |
+| `tentativas_falhas` | `INTEGER` | não | `DEFAULT 0` — contador de senhas erradas |
+| `bloqueado_ate` | `TEXT` | sim | Bloqueio temporário por força bruta |
+| `ultimo_acesso` | `TEXT` | sim | Carimbado a cada login aceito |
+| `criado_em` | `TEXT` | não | `DEFAULT (datetime('now','localtime'))` |
 
 **A senha nunca é armazenada.** A coluna guarda o resultado de um PBKDF2-SHA256
 com sal aleatório, no formato `pbkdf2_sha256$iteracoes$sal$hash`. O `CHECK` acima
-é a última linha de defesa: mesmo um `INSERT` feito direto no MySQL, por fora da
+é a última linha de defesa: mesmo um `INSERT` feito direto no arquivo do banco, por fora da
 aplicação, é recusado se tentar gravar a senha em texto puro.
 
 ## Resumo das restrições
@@ -222,6 +226,16 @@ O schema tem **6 tabelas** e **24 restrições**:
 Os números podem ser conferidos no próprio banco com a consulta 7b de
 [`evidencias.sql`](evidencias.sql).
 
+## Por que o dinheiro é inteiro
+
+O SQLite não tem tipo decimal de verdade: uma coluna declarada `DECIMAL(10,2)`
+acaba guardando ponto flutuante, e somar dinheiro em float pode render centavo
+errado. Por isso os valores são **inteiros de centavos** (`preco_centavos`,
+`valor_unitario_centavos`): `4590` é R$ 45,90. Assim `SUM()` é exato.
+
+A conversão para reais acontece numa fronteira só, em `util/Dinheiro.java`, e
+os modelos Java seguem usando `BigDecimal` — a API e as telas não mudaram.
+
 ## Decisões de normalização
 
 O modelo está na **3ª Forma Normal**. Duas decisões merecem destaque:
@@ -232,11 +246,11 @@ estão em `item_os`, e qualquer alteração de item deixaria o total defasado. O
 valor é sempre calculado:
 
 ```sql
-SELECT SUM(quantidade * valor_unitario) FROM item_os WHERE ordem_servico_id = ?;
+SELECT SUM(quantidade * valor_unitario_centavos) FROM item_os WHERE ordem_servico_id = ?;
 ```
 
-**2. `item_os.valor_unitario` não é redundância — é histórico.**
+**2. `item_os.valor_unitario_centavos` não é redundância — é histórico.**
 À primeira vista o preço já está em `servico.preco`. Mas `servico.preco` é o
-preço *de tabela hoje*, e `item_os.valor_unitario` é o preço *cobrado naquela OS*.
+preço *de tabela hoje*, e `item_os.valor_unitario_centavos` é o preço *cobrado naquela OS*.
 São fatos diferentes: se a oficina reajustar a tabela, as OS já emitidas não
 podem mudar de valor. Por isso o preço é copiado no momento do lançamento.

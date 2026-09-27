@@ -1,23 +1,40 @@
 -- =====================================================================
---  EVIDÊNCIAS DE PERSISTÊNCIA NO BANCO
+--  EVIDÊNCIAS DE PERSISTÊNCIA NO BANCO  —  SQLite
+--
 --  Consultas para comprovar que os dados criados pela interface estão
---  realmente gravados no MySQL (exigência de "Evidências Visuais").
+--  realmente gravados, e que as regras de integridade estão ativas.
 --
---  Como rodar (e tirar o print da saída):
+--  Como rodar:
 --
---      docker exec -i oficina-mysql mysql -uroot -proot \
---        --table --default-character-set=utf8mb4 < docs/evidencias.sql
+--      sqlite3 -header -column "CAMINHO/oficina.db" < docs/evidencias.sql
 --
---  A flag --default-character-set=utf8mb4 é obrigatória: sem ela o cliente
---  mysql imprime os acentos como "?" e o print sai com o texto corrompido
---  (o dado no banco está correto; o problema é só a saída do terminal).
+--  O caminho do banco aparece no console quando a aplicação sobe
+--  ("Arquivo: ..."). Por padrão:
+--      Windows  %LOCALAPPDATA%\OficinaMecanica\oficina.db
+--      Linux    ~/.local/share/OficinaMecanica/oficina.db
+--      macOS    ~/Library/Application Support/OficinaMecanica/oficina.db
 --
---  Ou cole as consultas no MySQL Workbench e tire o print de cada grade.
+--  Sem o sqlite3 instalado (ele não vem no Windows), baixe em
+--  https://sqlite.org/download.html — "sqlite-tools" — ou use o
+--  DB Browser for SQLite e cole as consultas.
+--
+--  IMPORTANTE: a primeira linha não é enfeite. No SQLite as chaves
+--  estrangeiras vêm DESLIGADAS em cada conexão, e sem ligá-las a prova
+--  de integridade do item 9 passaria sem erro, dando a impressão falsa
+--  de que não há integridade referencial.
 -- =====================================================================
-USE oficina;
+PRAGMA foreign_keys = ON;
 
 -- ---------------------------------------------------------------------
---  1. Quantas linhas existem em cada tabela
+--  1. As tabelas do banco
+-- ---------------------------------------------------------------------
+SELECT name AS tabela
+  FROM sqlite_master
+ WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+ ORDER BY name;
+
+-- ---------------------------------------------------------------------
+--  2. Quantas linhas existem em cada tabela
 -- ---------------------------------------------------------------------
 SELECT 'cliente' AS tabela, COUNT(*) AS linhas FROM cliente
 UNION ALL SELECT 'veiculo',       COUNT(*) FROM veiculo
@@ -27,125 +44,129 @@ UNION ALL SELECT 'item_os',       COUNT(*) FROM item_os
 UNION ALL SELECT 'usuario',       COUNT(*) FROM usuario;
 
 -- ---------------------------------------------------------------------
---  2. Clientes e seus veículos (relacionamento 1:N)
+--  3. Clientes e seus veículos (relacionamento 1:N)
 -- ---------------------------------------------------------------------
-SELECT c.id, c.nome, c.cpf, v.placa, CONCAT(v.marca, ' ', v.modelo) AS veiculo, v.ano
+SELECT c.id, c.nome, c.cpf, v.placa,
+       v.marca || ' ' || v.modelo AS veiculo, v.ano
   FROM cliente c
   LEFT JOIN veiculo v ON v.cliente_id = c.id
  ORDER BY c.id, v.placa;
 
 -- ---------------------------------------------------------------------
---  3. Ordens de serviço com cliente, veículo e total calculado
+--  4. Ordens de serviço com cliente, veículo e total calculado
 --     (JOIN duplo + subconsulta com SUM — o total NÃO é coluna)
+--
+--     Os valores são guardados em CENTAVOS (INTEGER), porque o SQLite não
+--     tem tipo decimal de verdade e somar dinheiro em ponto flutuante
+--     pode render centavo errado. A divisão por 100 é só para exibir.
 -- ---------------------------------------------------------------------
 SELECT os.id AS os, v.placa, c.nome AS cliente, os.status,
        os.data_abertura,
-       COALESCE((SELECT SUM(i.quantidade * i.valor_unitario)
-                   FROM item_os i WHERE i.ordem_servico_id = os.id), 0) AS total
+       printf('%.2f', COALESCE((SELECT SUM(i.quantidade * i.valor_unitario_centavos)
+                                  FROM item_os i
+                                 WHERE i.ordem_servico_id = os.id), 0) / 100.0) AS total_reais
   FROM ordem_servico os
   JOIN veiculo v ON v.id = os.veiculo_id
   JOIN cliente c ON c.id = v.cliente_id
  ORDER BY os.data_abertura DESC;
 
 -- ---------------------------------------------------------------------
---  4. Itens de uma OS — prova de que a transação gravou cabeçalho e itens
+--  5. Itens de uma OS — prova de que a transação gravou cabeçalho e itens
 -- ---------------------------------------------------------------------
 SELECT i.ordem_servico_id AS os, s.descricao AS item, s.tipo,
-       i.quantidade AS qtd, i.valor_unitario AS unitario,
-       (i.quantidade * i.valor_unitario) AS subtotal
+       i.quantidade AS qtd,
+       printf('%.2f', i.valor_unitario_centavos / 100.0) AS unitario,
+       printf('%.2f', i.quantidade * i.valor_unitario_centavos / 100.0) AS subtotal
   FROM item_os i
   JOIN servico s ON s.id = i.servico_id
  ORDER BY i.ordem_servico_id, i.id;
 
 -- ---------------------------------------------------------------------
---  5. Faturamento por status (GROUP BY)
+--  6. Faturamento por status (GROUP BY)
 -- ---------------------------------------------------------------------
 SELECT os.status, COUNT(DISTINCT os.id) AS quantidade,
-       COALESCE(SUM(i.quantidade * i.valor_unitario), 0) AS total
+       printf('%.2f', COALESCE(SUM(i.quantidade * i.valor_unitario_centavos), 0) / 100.0) AS total_reais
   FROM ordem_servico os
   LEFT JOIN item_os i ON i.ordem_servico_id = os.id
  GROUP BY os.status
- ORDER BY total DESC;
+ ORDER BY total_reais DESC;
 
 -- ---------------------------------------------------------------------
---  6. Histórico de um veículo (a consulta por trás da tela de histórico)
+--  7. Histórico de um veículo (a consulta por trás da tela de histórico)
 -- ---------------------------------------------------------------------
 SELECT os.id AS os, os.descricao_problema, os.status,
        os.data_abertura, os.data_conclusao,
-       COALESCE((SELECT SUM(i.quantidade * i.valor_unitario)
-                   FROM item_os i WHERE i.ordem_servico_id = os.id), 0) AS total
+       printf('%.2f', COALESCE((SELECT SUM(i.quantidade * i.valor_unitario_centavos)
+                                  FROM item_os i
+                                 WHERE i.ordem_servico_id = os.id), 0) / 100.0) AS total_reais
   FROM ordem_servico os
   JOIN veiculo v ON v.id = os.veiculo_id
  WHERE v.placa = 'ABC1D23'
  ORDER BY os.data_abertura DESC;
 
 -- ---------------------------------------------------------------------
---  7. As restrições que o banco realmente tem (PK, FK, UNIQUE, CHECK)
+--  8. As restrições que o banco realmente tem
+--
+--     O SQLite não tem information_schema: quem guarda as restrições é o
+--     próprio texto do CREATE TABLE, em sqlite_master. Este SELECT mostra
+--     o DDL de verdade que está dentro do arquivo, com PK, UNIQUE, CHECK
+--     e FOREIGN KEY de cada tabela.
 -- ---------------------------------------------------------------------
-SELECT TABLE_NAME AS tabela, CONSTRAINT_NAME AS restricao, CONSTRAINT_TYPE AS tipo
-  FROM information_schema.TABLE_CONSTRAINTS
- WHERE CONSTRAINT_SCHEMA = 'oficina'
- ORDER BY TABLE_NAME, CONSTRAINT_TYPE, CONSTRAINT_NAME;
+SELECT sql AS ddl_gravado_no_banco
+  FROM sqlite_master
+ WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+ ORDER BY name;
 
 -- ---------------------------------------------------------------------
---  7b. Total de restrições por tipo (o número que o README cita)
+--  9. As chaves estrangeiras e suas políticas
+--     (comprova o RESTRICT/CASCADE descrito no DER)
 -- ---------------------------------------------------------------------
-SELECT CONSTRAINT_TYPE AS tipo, COUNT(*) AS quantidade
-  FROM information_schema.TABLE_CONSTRAINTS
- WHERE CONSTRAINT_SCHEMA = 'oficina'
- GROUP BY CONSTRAINT_TYPE
- ORDER BY quantidade DESC;
+SELECT 'veiculo'       AS tabela, "table" AS referencia, "from" AS coluna,
+       on_delete AS ao_excluir, on_update AS ao_atualizar FROM pragma_foreign_key_list('veiculo')
+UNION ALL
+SELECT 'ordem_servico', "table", "from", on_delete, on_update FROM pragma_foreign_key_list('ordem_servico')
+UNION ALL
+SELECT 'item_os',       "table", "from", on_delete, on_update FROM pragma_foreign_key_list('item_os');
 
 -- ---------------------------------------------------------------------
---  8. As chaves estrangeiras e suas políticas de integridade
---     (é o que comprova o RESTRICT/CASCADE descrito no DER)
--- ---------------------------------------------------------------------
-SELECT rc.TABLE_NAME AS tabela, rc.CONSTRAINT_NAME AS fk, k.COLUMN_NAME AS coluna,
-       rc.REFERENCED_TABLE_NAME AS referencia,
-       rc.DELETE_RULE AS ao_excluir, rc.UPDATE_RULE AS ao_atualizar
-  FROM information_schema.REFERENTIAL_CONSTRAINTS rc
-  JOIN information_schema.KEY_COLUMN_USAGE k
-    ON k.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
-   AND k.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
- WHERE rc.CONSTRAINT_SCHEMA = 'oficina'
- ORDER BY rc.TABLE_NAME;
-
--- ---------------------------------------------------------------------
---  9. Nenhuma senha em texto puro: a coluna guarda só o hash PBKDF2
---     (o prefixo "pbkdf2_sha256$" é exigido por um CHECK da tabela)
+--  10. Nenhuma senha em texto puro: a coluna guarda só o hash PBKDF2
 -- ---------------------------------------------------------------------
 SELECT id, nome, email, perfil, ativo,
-       LEFT(senha_hash, 30) AS inicio_do_hash,
-       CHAR_LENGTH(senha_hash) AS tamanho
+       substr(senha_hash, 1, 30) AS inicio_do_hash,
+       length(senha_hash) AS tamanho
   FROM usuario
  ORDER BY id;
 
+-- ---------------------------------------------------------------------
+--  11. O banco está íntegro?
+-- ---------------------------------------------------------------------
+PRAGMA integrity_check;
+
 -- =====================================================================
---  10. PROVAS DE INTEGRIDADE — comandos que FALHAM de propósito
+--  12. PROVAS DE INTEGRIDADE — comandos que FALHAM de propósito
 --
---  Rode SEPARADAMENTE: o erro é justamente a evidência. Tire o print
---  da mensagem de erro.
+--  Rode SEPARADAMENTE: o erro É a evidência. Lembre do
+--  PRAGMA foreign_keys = ON antes, senão o primeiro passa e não prova nada.
 --
 --  a) A FK impede excluir um cliente que ainda tem veículo:
 --
 --         DELETE FROM cliente WHERE id = 1;
---
---     Saída esperada:
---         ERROR 1451 (23000): Cannot delete or update a parent row:
---         a foreign key constraint fails (`oficina`.`veiculo`, ...)
+--     -> Runtime error: FOREIGN KEY constraint failed
 --
 --  b) O CHECK impede gravar senha em texto puro, mesmo por fora da aplicação:
 --
 --         INSERT INTO usuario (nome, email, senha_hash, perfil)
 --         VALUES ('Invasor', 'x@y.com', '123456', 'ADMIN');
+--     -> Runtime error: CHECK constraint failed: ck_usuario_senha
 --
---     Saída esperada:
---         ERROR 3819 (HY000): Check constraint 'ck_usuario_senha' is violated.
---
---  c) O CHECK do CPF recusa um valor fora do formato:
+--  c) O CHECK do CPF recusa valor fora do formato de 11 dígitos:
 --
 --         INSERT INTO cliente (nome, cpf) VALUES ('Teste', 'abc');
+--     -> Runtime error: CHECK constraint failed: ck_cliente_cpf
 --
---     Saída esperada:
---         ERROR 3819 (HY000): Check constraint 'ck_cliente_cpf' is violated.
+--  d) O CHECK do status recusa valor fora da lista:
+--
+--         INSERT INTO ordem_servico (veiculo_id, status, descricao_problema)
+--         VALUES (1, 'INVENTADO', 'teste');
+--     -> Runtime error: CHECK constraint failed: ck_os_status
 -- =====================================================================

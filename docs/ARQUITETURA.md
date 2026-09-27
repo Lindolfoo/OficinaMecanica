@@ -5,14 +5,14 @@ Ordem sugerida para entender o projeto (e para dividir entre o grupo).
 ## 1. O banco vem primeiro
 | Arquivo | O que ver |
 |---|---|
-| `sql/01_schema.sql` | As 6 tabelas e as 24 restrições (PK/FK/UNIQUE/CHECK), com as políticas `RESTRICT`/`CASCADE`. **Leia este antes de qualquer Java.** |
+| `sql/01_schema.sql` | As 6 tabelas e as restrições (PK/FK/UNIQUE/CHECK), com as políticas `RESTRICT`/`CASCADE`. **Leia este antes de qualquer Java.** |
 | `sql/02_seed.sql` | Dados de exemplo para a tela não nascer vazia. |
 
 ## 2. Infraestrutura (escreve-se uma vez, não se mexe mais)
 | Arquivo | Responsabilidade |
 |---|---|
 | `config/Config.java` | Lê `config.properties`; variáveis de ambiente têm prioridade. |
-| `db/Database.java` | Abre conexões JDBC e executa o schema na subida. |
+| `db/Database.java` | Abre conexões JDBC (ligando `foreign_keys` e `busy_timeout` em cada uma) e aplica o schema na subida. |
 | `http/Json.java` | Serializador JSON escrito à mão (zero bibliotecas). |
 | `http/HttpUtil.java` | Lê formulário/query string, escreve resposta JSON. |
 | `http/BaseHandler.java` | Roteia por método HTTP e traduz exceção SQL em status HTTP. |
@@ -28,6 +28,8 @@ Ordem sugerida para entender o projeto (e para dividir entre o grupo).
 | `security/FiltroAutenticacao.java` | O porteiro: exige sessão e confere o token anti-CSRF. |
 | `api/AuthHandler.java` | Entrar, sair e trocar a própria senha. |
 | `api/UsuarioHandler.java` | CRUD de contas — só perfil ADMIN. |
+| `db/Backup.java` | Cópia com `VACUUM INTO`, diária e sob demanda. |
+| `desktop/` | Janela do navegador, ícone na bandeja e trava de instância única. |
 
 As quatro defesas, em ordem de quem tenta o quê:
 
@@ -46,7 +48,7 @@ Cada módulo tem sempre as mesmas três camadas:
 | Módulo | Dificuldade | Sugestão |
 |---|---|---|
 | `Cliente` | Simples | CRUD mais direto — comece por aqui. |
-| `Servico` | Simples | Igual ao Cliente, com `DECIMAL` e `ENUM`. |
+| `Servico` | Simples | Igual ao Cliente, com preço em centavos e `CHECK` no lugar do ENUM. |
 | `Veiculo` | Média | Primeiro `JOIN` (traz o nome do dono). |
 | `OrdemServico` | **Alta** | `JOIN` duplo, subconsulta `SUM`, tabela associativa e **transação**. |
 
@@ -67,7 +69,7 @@ Se o professor perguntar "onde está o controle de transação?", é aqui.
 | Arquivo | Conteúdo |
 |---|---|
 | `static/login.html` + `js/login.js` | Tela de entrada. Só manda e-mail e senha; o token da sessão volta no cookie e o JavaScript nem o enxerga. |
-| `static/index.html` | Menu lateral + 6 páginas (Dashboard, Clientes, Veículos, Serviços, OS, Usuários) e os modais. |
+| `static/index.html` | Menu lateral + 7 páginas (Dashboard, Clientes, Veículos, Serviços, OS, Usuários, Backup) e os modais. |
 | `static/js/app.js` | Um bloco por módulo, sempre: `carregar` → `abrirModal` → `submit` → `excluir`. No topo ficam a sessão, o token CSRF e a navegação. |
 | `static/css/style.css` | Identidade visual, menu lateral, dashboard e a via impressa; o resto é Bootstrap. |
 | `static/img/beagle-mecanico.jpg` | Mascote da tela de login. Fica no classpath como os demais estáticos. |
@@ -85,7 +87,7 @@ uma dependência só no `pom.xml`.
         -> App.java (rota)
         -> XHandler (valida a entrada)
         -> XDao (PreparedStatement)
-        -> MySQL
+        -> SQLite (arquivo oficina.db)
         -> volta como JSON
 
 Sem sessão, o pedido morre no filtro: a API responde `401` e as páginas
